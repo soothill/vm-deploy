@@ -111,13 +111,6 @@ build-image-remote: ## Build image on dedicated build VM (RECOMMENDED)
 	@echo "$(BLUE)Building image on dedicated OpenSUSE build VM...$(NC)"
 	@echo "$(YELLOW)This is the RECOMMENDED method for building KIWI images$(NC)"
 	@echo ""
-	@if [ ! -f build-vm/build-vm-ip.txt ] && [ -z "$(BUILD_VM_IP)" ]; then \
-		echo "$(RED)ERROR: Build VM not configured!$(NC)"; \
-		echo ""; \
-		echo "Please run: make deploy-build-vm"; \
-		echo "Or set BUILD_VM_IP in .env"; \
-		exit 1; \
-	fi
 	@./build-vm/build-and-transfer.sh
 
 build-image: ## Build OpenSUSE image on Proxmox host (legacy method)

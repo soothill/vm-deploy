@@ -35,13 +35,32 @@ if [ -z "${BUILD_VM_IP}" ]; then
             echo "Build VM ${BUILD_VM_ID} is not running (status: ${VM_STATUS})"
             echo "Starting build VM..."
             ssh ${PROXMOX_USER}@${PROXMOX_HOST} "qm start ${BUILD_VM_ID}"
-            echo "Waiting 30 seconds for VM to boot..."
-            sleep 30
+            echo "Waiting 60 seconds for VM to boot..."
+            sleep 60
         fi
 
-        # Try to get IP via QEMU guest agent
-        echo "Detecting IP address via QEMU guest agent..."
-        BUILD_VM_IP=$(ssh ${PROXMOX_USER}@${PROXMOX_HOST} "qm guest cmd ${BUILD_VM_ID} network-get-interfaces 2>/dev/null | grep -o '\"ip-address\":\"[0-9.]*\"' | grep -o '[0-9.]*' | grep -v 127.0.0.1 | head -1" || echo "")
+        # Get VM MAC address for fallback detection
+        VM_MAC=$(ssh ${PROXMOX_USER}@${PROXMOX_HOST} "qm config ${BUILD_VM_ID} | grep -o 'net0:.*' | grep -o '[0-9A-Fa-f:]\{17\}' | head -1")
+
+        echo "Detecting IP address using multiple methods..."
+
+        # Method 1: Try QEMU guest agent (qm guest cmd)
+        BUILD_VM_IP=$(ssh ${PROXMOX_USER}@${PROXMOX_HOST} "qm guest cmd ${BUILD_VM_ID} network-get-interfaces 2>/dev/null | grep -oP '\"ip-address\":\"\K[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' | grep -v '127.0.0.1' | head -1" 2>/dev/null || echo "")
+
+        if [ -z "${BUILD_VM_IP}" ]; then
+            # Method 2: Try qm agent (used by Proxmox GUI)
+            BUILD_VM_IP=$(ssh ${PROXMOX_USER}@${PROXMOX_HOST} "qm agent ${BUILD_VM_ID} network-get-interfaces 2>/dev/null | grep -oP 'ip-address[\"\\s:]+\K[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' | grep -v '127.0.0.1' | head -1" || echo "")
+        fi
+
+        if [ -z "${BUILD_VM_IP}" ] && [ -n "${VM_MAC}" ]; then
+            # Method 3: Try ARP table
+            BUILD_VM_IP=$(ssh ${PROXMOX_USER}@${PROXMOX_HOST} "ip neigh show | grep -i '${VM_MAC}' | grep -o '[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}' | head -1" || echo "")
+        fi
+
+        if [ -z "${BUILD_VM_IP}" ] && [ -n "${VM_MAC}" ]; then
+            # Method 4: Try DHCP leases
+            BUILD_VM_IP=$(ssh ${PROXMOX_USER}@${PROXMOX_HOST} "grep -i '${VM_MAC}' /var/lib/misc/dnsmasq.leases 2>/dev/null | awk '{print \$3}' | head -1" || echo "")
+        fi
 
         if [ -n "${BUILD_VM_IP}" ]; then
             echo "✓ Detected build VM IP: ${BUILD_VM_IP}"
