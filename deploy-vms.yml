@@ -7,13 +7,42 @@
     - vars/vm_config.yml
   
   tasks:
-    - name: Ensure required Python libraries are available
+    - name: Check if required Python libraries are available
+      ansible.builtin.command:
+        cmd: python3 -c "import proxmoxer, requests"
+      delegate_to: localhost
+      run_once: true
+      register: pip_check
+      failed_when: false
+      changed_when: false
+
+    - name: Install required Python libraries (if missing)
       ansible.builtin.pip:
         name:
           - proxmoxer
           - requests
+        extra_args: --user
       delegate_to: localhost
       run_once: true
+      when: pip_check.rc != 0
+      ignore_errors: true
+      register: pip_install
+
+    - name: Show installation instructions if pip install failed
+      ansible.builtin.fail:
+        msg: |
+          Required Python libraries (proxmoxer, requests) are not installed.
+
+          Please install them manually:
+            pip3 install --user proxmoxer requests
+
+          Or with sudo:
+            sudo pip3 install proxmoxer requests
+
+          Then run 'make deploy' again.
+      when:
+        - pip_check.rc != 0
+        - pip_install.failed | default(false)
 
     - name: Check if custom OpenSUSE image exists
       ansible.builtin.stat:
