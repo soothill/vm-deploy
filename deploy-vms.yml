@@ -5,8 +5,23 @@
   
   vars_files:
     - vars/vm_config.yml
-  
+
   tasks:
+
+    - name: Detect storage type for the configured pool
+      ansible.builtin.shell: |
+        pvesm status -storage {{ storage_pool }} | awk 'NR==2 {print $2}'
+      register: storage_type_result
+      changed_when: false
+      failed_when: false
+
+    - name: Set storage type fact
+      ansible.builtin.set_fact:
+        storage_type: "{{ storage_type_result.stdout | trim }}"
+
+    - name: Display detected storage type
+      ansible.builtin.debug:
+        msg: "Detected storage type for '{{ storage_pool }}': {{ storage_type }}"
 
     - name: Check if custom OpenSUSE image exists
       ansible.builtin.stat:
@@ -64,35 +79,70 @@
       when: item.stdout == "absent"
       changed_when: true
 
-    - name: Import and configure OS disk
+    - name: Import and configure OS disk (ZFS storage)
       ansible.builtin.shell: |
         # Import disk image
-        qm importdisk {{ item.vmid }} {{ opensuse_image_path }} {{ storage_pool }} --format qcow2
-        
+        qm importdisk {{ item.vmid }} {{ opensuse_image_path }} {{ storage_pool }}
+
         # Attach OS disk as scsi0
-        qm set {{ item.vmid }} --scsi0 {{ storage_pool }}:vm-{{ item.vmid }}-disk-0,discard=on,size=50G,ssd=1,cache=writeback
-        
+        qm set {{ item.vmid }} --scsi0 {{ storage_pool }}:vm-{{ item.vmid }}-disk-0,discard=on,size=50G
+
         # Set boot disk
         qm set {{ item.vmid }} --boot order=scsi0
       loop: "{{ vms }}"
+      when: storage_type == "zfspool"
       changed_when: true
       args:
         executable: /bin/bash
 
-    - name: Create and attach data disks (unformatted for Ceph OSD)
+    - name: Import and configure OS disk (LVM/Directory storage)
+      ansible.builtin.shell: |
+        # Import disk image
+        qm importdisk {{ item.vmid }} {{ opensuse_image_path }} {{ storage_pool }} --format qcow2
+
+        # Attach OS disk as scsi0
+        qm set {{ item.vmid }} --scsi0 {{ storage_pool }}:vm-{{ item.vmid }}-disk-0,discard=on,size=50G,ssd=1,cache=writeback
+
+        # Set boot disk
+        qm set {{ item.vmid }} --boot order=scsi0
+      loop: "{{ vms }}"
+      when: storage_type != "zfspool"
+      changed_when: true
+      args:
+        executable: /bin/bash
+
+    - name: Create and attach data disks (ZFS storage)
+      ansible.builtin.shell: |
+        for i in {1..4}; do
+          qm set {{ item.vmid }} --scsi$i {{ storage_pool }}:{{ data_disk_size | regex_replace('G$', '') }},discard=on
+        done
+      loop: "{{ vms }}"
+      when: storage_type == "zfspool"
+      changed_when: true
+
+    - name: Create and attach data disks (LVM/Directory storage)
       ansible.builtin.shell: |
         for i in {1..4}; do
           qm set {{ item.vmid }} --scsi$i {{ storage_pool }}:{{ data_disk_size }},format=qcow2,discard=on,cache=writeback
         done
       loop: "{{ vms }}"
+      when: storage_type != "zfspool"
       changed_when: true
       args:
         executable: /bin/bash
 
-    - name: Create and attach Ceph mon disk (100GB)
+    - name: Create and attach Ceph mon disk (ZFS storage)
+      ansible.builtin.shell: |
+        qm set {{ item.vmid }} --scsi5 {{ storage_pool }}:{{ mon_disk_size | default('100G') | regex_replace('G$', '') }},discard=on
+      loop: "{{ vms }}"
+      when: storage_type == "zfspool"
+      changed_when: true
+
+    - name: Create and attach Ceph mon disk (LVM/Directory storage)
       ansible.builtin.shell: |
         qm set {{ item.vmid }} --scsi5 {{ storage_pool }}:{{ mon_disk_size | default('100G') }},format=qcow2,discard=on,cache=writeback
       loop: "{{ vms }}"
+      when: storage_type != "zfspool"
       changed_when: true
       args:
         executable: /bin/bash
