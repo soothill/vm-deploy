@@ -177,6 +177,9 @@ remove-build-vm: check-env ## Remove the build VM
 fix-build-vm-certs: check-env ## Fix CA certificates on existing build VM
 	@./build-vm/fix-build-vm-certs.sh
 
+fix-build-vm-kpartx: check-env ## Install missing kpartx tool on existing build VM
+	@./build-vm/fix-build-vm-kpartx.sh
+
 detect-build-vm-ip: check-env ## Auto-detect and save build VM IP address
 	@echo "$(BLUE)Detecting build VM IP address...$(NC)"
 	@BUILD_VM_ID=$${BUILD_VM_ID:-100}; \

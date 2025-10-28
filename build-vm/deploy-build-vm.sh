@@ -385,6 +385,8 @@ echo "Installing KIWI and required tools..."
 zypper install -y \
     python3-kiwi \
     qemu-tools \
+    kpartx \
+    parted \
     git \
     rsync \
     openssh
