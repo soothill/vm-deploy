@@ -244,9 +244,9 @@ else
             fi
         fi
 
-        # Extract IPv4 address only (must have at least one digit, ignore IPv6)
+        # Extract IPv4 address only (ignore IPv6 and localhost)
         # Use || echo "" to prevent set -e from exiting on failure
-        VM_IP=$(ssh ${PROXMOX_USER}@${PROXMOX_HOST} "qm guest cmd ${BUILD_VM_ID} network-get-interfaces 2>/dev/null | grep -o '\"ip-address\":\"[0-9][0-9.]*\"' | grep -o '[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}' | grep -v '127.0.0.1' | head -1" 2>/dev/null || echo "")
+        VM_IP=$(ssh ${PROXMOX_USER}@${PROXMOX_HOST} "qm guest cmd ${BUILD_VM_ID} network-get-interfaces 2>/dev/null | grep -oP '\"ip-address\":\"\K[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' | grep -v '127.0.0.1' | head -1" 2>/dev/null || echo "")
 
         if [ -n "${VM_IP}" ] && [ "${VM_IP}" != "." ] && [ "${VM_IP}" != ".." ]; then
             echo "✓ Successfully detected IP via guest agent: ${VM_IP}"
@@ -273,6 +273,15 @@ else
             break
         fi
 
+        # Method 4: Try qm agent command (used by Proxmox GUI)
+        VM_IP=$(ssh ${PROXMOX_USER}@${PROXMOX_HOST} "qm agent ${BUILD_VM_ID} network-get-interfaces 2>/dev/null | grep -oP 'ip-address[\"\\s:]+\K[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' | grep -v '127.0.0.1' | head -1" || echo "")
+
+        if [ -n "${VM_IP}" ]; then
+            echo "✓ Successfully detected IP via qm agent: ${VM_IP}"
+            echo "  (Using Proxmox agent interface)"
+            break
+        fi
+
         if [ $i -lt 24 ]; then
             if [ $i -eq 1 ]; then
                 echo "  Waiting for VM to acquire IP address (guest agent: not responding, trying network detection)..."
@@ -290,9 +299,10 @@ else
         echo "=========================================="
         echo ""
         echo "Failed to detect IP address after 4 minutes using:"
-        echo "  - QEMU guest agent"
+        echo "  - QEMU guest agent (qm guest cmd)"
         echo "  - ARP table lookup (MAC: ${VM_MAC:-unknown})"
         echo "  - DHCP leases file"
+        echo "  - Proxmox agent interface (qm agent)"
         echo ""
         echo "This could mean:"
         echo "  1. VM is still booting (cloud-init can be very slow)"
