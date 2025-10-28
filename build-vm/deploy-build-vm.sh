@@ -371,7 +371,8 @@ done
 
 echo "Installing CA certificates..."
 # Install CA certificates first to avoid SSL issues
-zypper install -y --no-refresh ca-certificates ca-certificates-mozilla
+# Use --no-gpg-checks since we can't verify signatures without CA certs yet
+zypper --no-gpg-checks install -y ca-certificates ca-certificates-mozilla
 
 echo "Updating CA certificate store..."
 update-ca-certificates

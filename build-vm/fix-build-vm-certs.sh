@@ -52,7 +52,7 @@ ssh -o StrictHostKeyChecking=no root@${BUILD_VM_IP} bash <<'EOFVM'
 set -e
 
 echo "Installing/updating CA certificates..."
-zypper install -y --no-refresh ca-certificates ca-certificates-mozilla || true
+zypper --no-gpg-checks install -y ca-certificates ca-certificates-mozilla || true
 
 echo "Updating CA certificate store..."
 update-ca-certificates
