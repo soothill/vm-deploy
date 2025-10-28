@@ -135,10 +135,28 @@ build-image: ## Build OpenSUSE image on Proxmox host (legacy method)
 
 check-image: check-env ## Check if OpenSUSE image exists on Proxmox
 	@echo "$(BLUE)Checking for OpenSUSE image...$(NC)"
-	@$(ANSIBLE) -i $(INVENTORY) all -m stat -a "path=$(OPENSUSE_IMAGE_PATH)" $(ANSIBLE_OPTS) > /dev/null 2>&1 || \
-		(echo "$(RED)ERROR: Image not found at $(OPENSUSE_IMAGE_PATH)$(NC)" && \
-		 echo "Build it with: make build-image" && exit 1)
-	@echo "$(GREEN)Image found at $(OPENSUSE_IMAGE_PATH)$(NC)"
+	@echo "  Host: $(PROXMOX_API_HOST)"
+	@echo "  Path: $(OPENSUSE_IMAGE_PATH)"
+	@echo ""
+	@if ssh $(PROXMOX_SSH_USER)@$(PROXMOX_API_HOST) "test -f $(OPENSUSE_IMAGE_PATH)"; then \
+		echo "$(GREEN)✓ Image found at $(OPENSUSE_IMAGE_PATH)$(NC)"; \
+	else \
+		echo "$(RED)ERROR: Image not found at $(OPENSUSE_IMAGE_PATH)$(NC)"; \
+		echo ""; \
+		echo "Options:"; \
+		echo "  1. Build image on dedicated build VM (recommended):"; \
+		echo "     make deploy-build-vm"; \
+		echo "     make build-image-remote"; \
+		echo ""; \
+		echo "  2. Build image directly on Proxmox:"; \
+		echo "     make upload-kiwi"; \
+		echo "     make build-image"; \
+		echo ""; \
+		echo "  3. Check if image exists at different location:"; \
+		echo "     ssh $(PROXMOX_SSH_USER)@$(PROXMOX_API_HOST) 'find /var/lib/vz -name \"*.qcow2\" -type f'"; \
+		echo ""; \
+		exit 1; \
+	fi
 
 upload-kiwi: check-env ## Upload KIWI build directory to Proxmox
 	@echo "$(BLUE)Uploading KIWI build directory to Proxmox...$(NC)"
