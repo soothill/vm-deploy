@@ -32,31 +32,31 @@
           - {{ vm.name }} (VMID: {{ vm.vmid }})
           {% endfor %}
 
-    - name: Stop VMs
-      community.general.proxmox_kvm:
-        api_user: "{{ proxmox_api_user }}"
-        api_password: "{{ proxmox_api_password }}"
-        api_host: "{{ proxmox_api_host }}"
-        node: "{{ proxmox_node }}"
-        vmid: "{{ item.vmid }}"
-        state: stopped
-        force: true
+    - name: Stop VMs using qm command
+      ansible.builtin.shell: |
+        qm stop {{ item.vmid }} || true
       loop: "{{ vms }}"
-      ignore_errors: true
+      register: stop_result
+      changed_when: true
+      failed_when: false
 
     - name: Wait for VMs to stop
       ansible.builtin.pause:
         seconds: 5
 
-    - name: Delete VMs
-      community.general.proxmox_kvm:
-        api_user: "{{ proxmox_api_user }}"
-        api_password: "{{ proxmox_api_password }}"
-        api_host: "{{ proxmox_api_host }}"
-        node: "{{ proxmox_node }}"
-        vmid: "{{ item.vmid }}"
-        state: absent
+    - name: Delete VMs using qm command
+      ansible.builtin.shell: |
+        qm destroy {{ item.vmid }} --purge
       loop: "{{ vms }}"
+      register: destroy_result
+      changed_when: true
+      failed_when: false
+
+    - name: Display deletion errors (if any)
+      ansible.builtin.debug:
+        msg: "Failed to delete VM {{ item.item.vmid }}: {{ item.stderr }}"
+      loop: "{{ destroy_result.results }}"
+      when: item.rc != 0 and item.stderr != ""
 
     - name: Display removal summary
       ansible.builtin.debug:
