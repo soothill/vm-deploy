@@ -2,10 +2,13 @@
 
 Fast, automated deployment of OpenSUSE Leap VMs optimized for Ceph storage clusters using Ansible and KIWI.
 
+**Quick Start:** Run `make help` for available commands • See [MAKEFILE_GUIDE.md](MAKEFILE_GUIDE.md) for detailed Makefile usage
+
 ## Features
 
 - ✅ Deploy 4 OpenSUSE VMs in 2-5 minutes
 - ✅ Pre-built KIWI images with automatic updates
+- ✅ **Makefile wrapper for easy Ansible management**
 - ✅ **GitHub SSH key import during deployment**
 - ✅ **Dual network interfaces** (private + public)
 - ✅ Thin-provisioned storage (50GB OS + 4x1TB data)
@@ -18,84 +21,193 @@ Fast, automated deployment of OpenSUSE Leap VMs optimized for Ceph storage clust
 
 ## Quick Start
 
-### Step 1: Build the OpenSUSE Image (One-Time, 15-40 min)
+### Prerequisites
+
+- GNU Make installed
+- Ansible 2.9+
+- SSH access to Proxmox host
+- Python 3 with proxmoxer and requests libraries
+
+### Step 1: Initialize Configuration
 
 ```bash
-# Copy kiwi directory to Proxmox host
-scp -r kiwi/ root@proxmox:/root/
+# Create .env file from template
+make init
 
-# Build the image
+# Edit your configuration
+make edit-env
+```
+
+Configure these key settings in [.env](.env.example):
+- Proxmox API credentials and host
+- Storage pool and disk sizes
+- Network bridges
+- VM resource defaults
+- GitHub username (optional)
+
+### Step 2: Build the OpenSUSE Image (One-Time, 15-40 min)
+
+```bash
+# Upload KIWI build files to Proxmox
+make upload-kiwi
+
+# Build the image on Proxmox host
+make build-image
+```
+
+Or manually:
+```bash
 ssh root@proxmox
 cd /root/kiwi
-chmod +x build-image.sh
 ./build-image.sh
 ```
 
 The build process will:
 - Install KIWI if needed
 - Build minimal OpenSUSE Leap 15.6 image
-- **Run zypper update to install all latest packages**
+- Run zypper update to install all latest packages
 - Install and configure avahi + lldpd
 - Copy image to `/var/lib/vz/template/iso/opensuse-leap-custom.qcow2`
-
-### Step 2: Configure Deployment (2 minutes)
-
-Edit `vars/vm_config.yml`:
-
-```yaml
-# Proxmox connection
-proxmox_api_user: "root@pam"
-proxmox_api_password: "your_password"
-proxmox_api_host: "proxmox.example.com"
-proxmox_node: "pve"
-
-# GitHub SSH key import (optional but recommended)
-github_username: "your-github-username"  # Leave empty to skip
-
-# Storage - single NVMe pool for all disks
-storage_pool: "nvme-pool"  # Change to your NVMe storage name
-data_disk_size: "1000G"    # Size per data disk (4 disks total)
-
-# Network bridges
-private_bridge: "vmbr1"
-public_bridge: "vmbr0"
-
-# VM settings
-vm_default_memory: 16384  # 16GB RAM
-vm_default_cores: 4
-```
-
-Update `inventory.ini` with your Proxmox host:
-
-```ini
-[proxmox_host]
-your-proxmox-host.com ansible_user=root
-```
 
 ### Step 3: Deploy VMs (2-5 minutes)
 
 ```bash
-ansible-playbook -i inventory.ini deploy-vms.yml
+# Test connection first
+make test-connection
+
+# Deploy VMs
+make deploy
+```
+
+Or with options:
+```bash
+# Verbose deployment
+make deploy VERBOSE=2
+
+# Dry-run (check mode)
+make deploy CHECK=1
 ```
 
 ### Step 4: Configure VMs (5-10 minutes)
 
-After deployment, configure the VMs:
+After deployment, update [inventory-vms.ini](inventory-vms.ini) with actual VM IPs, then:
 
 ```bash
-# Update inventory-vms.ini with actual VM IPs
-vim inventory-vms.ini
+# Configure VMs (updates, SSH keys, services)
+make configure
+```
 
-# Run post-deployment configuration
-ansible-playbook -i inventory-vms.ini configure-vms.yml
+Or deploy and configure in one step:
+```bash
+make deploy-full
 ```
 
 This will:
 - Import your GitHub SSH keys
-- Run `zypper update` to get latest packages
+- Run zypper update to get latest packages
 - Verify avahi-daemon is running
 - Verify lldpd is running
 - Check data disks are ready for Ceph
+
+## Makefile Commands
+
+See all available commands:
+```bash
+make help
+```
+
+### Main Operations
+
+| Command | Description |
+|---------|-------------|
+| `make all` | Full deployment (image check + deploy + configure) |
+| `make deploy` | Deploy VMs to Proxmox |
+| `make configure` | Configure deployed VMs |
+| `make deploy-full` | Deploy and configure in one step |
+| `make remove CONFIRM_DELETE=true` | Remove VMs (requires confirmation) |
+
+### Image Management
+
+| Command | Description |
+|---------|-------------|
+| `make build-image` | Build OpenSUSE image on Proxmox |
+| `make check-image` | Check if image exists |
+| `make upload-kiwi` | Upload KIWI files to Proxmox |
+
+### VM Operations
+
+| Command | Description |
+|---------|-------------|
+| `make list-vms` | List configured VMs |
+| `make vm-status` | Check VM status |
+| `make start-vms` | Start all VMs |
+| `make stop-vms` | Stop all VMs |
+
+### Testing & Validation
+
+| Command | Description |
+|---------|-------------|
+| `make test-connection` | Test Proxmox connection |
+| `make test-vm-connection` | Test VM connections |
+| `make check-syntax` | Check playbook syntax |
+| `make dry-run` | Dry-run full deployment |
+
+### Configuration
+
+| Command | Description |
+|---------|-------------|
+| `make edit-config` | Edit VM configuration |
+| `make edit-inventory` | Edit Proxmox inventory |
+| `make edit-vm-inventory` | Edit VM inventory |
+| `make edit-env` | Edit environment variables |
+
+### Utility
+
+| Command | Description |
+|---------|-------------|
+| `make status` | Show deployment status |
+| `make info` | Show detailed configuration |
+| `make update` | Update all VMs |
+| `make clean` | Clean generated files |
+
+### Options
+
+Add these options to any command:
+
+```bash
+VERBOSE=1/2/3    # Add verbosity (-v/-vv/-vvv)
+CHECK=1          # Run in check mode (dry-run)
+DIFF=1           # Show differences
+CONFIRM_DELETE=true  # Required for remove command
+```
+
+Examples:
+```bash
+make deploy VERBOSE=2
+make configure CHECK=1 DIFF=1
+make remove CONFIRM_DELETE=true
+```
+
+## Alternative: Direct Ansible Usage
+
+If you prefer using Ansible directly without Make:
+
+```bash
+# Deploy VMs
+ansible-playbook -i inventory.ini deploy-vms.yml
+
+# Configure VMs
+ansible-playbook -i inventory-vms.ini configure-vms.yml
+
+# Remove VMs
+ansible-playbook -i inventory.ini remove-vms.yml -e "confirm_deletion=true"
+
+# With verbosity
+ansible-playbook -i inventory.ini deploy-vms.yml -vvv
+
+# Dry-run
+ansible-playbook -i inventory.ini deploy-vms.yml --check
+```
 
 ## Storage Configuration
 

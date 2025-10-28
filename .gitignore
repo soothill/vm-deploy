@@ -1,0 +1,25 @@
+# Environment configuration
+.env
+
+# Ansible
+*.retry
+
+# Python
+*.pyc
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Generated inventories (optional - comment out if you want to track them)
+# inventory-vms.ini
