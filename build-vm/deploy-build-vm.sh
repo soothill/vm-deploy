@@ -234,16 +234,19 @@ else
         # Method 1: Try QEMU guest agent first
         # Get the full output for debugging on first attempt
         if [ $i -eq 1 ]; then
-            GUEST_OUTPUT=$(ssh ${PROXMOX_USER}@${PROXMOX_HOST} "qm guest cmd ${BUILD_VM_ID} network-get-interfaces 2>&1")
+            GUEST_OUTPUT=$(ssh ${PROXMOX_USER}@${PROXMOX_HOST} "qm guest cmd ${BUILD_VM_ID} network-get-interfaces 2>&1" || echo "command failed")
             if echo "${GUEST_OUTPUT}" | grep -q "QEMU guest agent is not connected"; then
                 echo "  Note: Guest agent is not connected yet"
+            elif echo "${GUEST_OUTPUT}" | grep -q "command failed"; then
+                echo "  Note: Guest agent command failed"
             elif echo "${GUEST_OUTPUT}" | grep -q "error"; then
                 echo "  Note: Guest agent returned error"
             fi
         fi
 
         # Extract IPv4 address only (must have at least one digit, ignore IPv6)
-        VM_IP=$(ssh ${PROXMOX_USER}@${PROXMOX_HOST} "qm guest cmd ${BUILD_VM_ID} network-get-interfaces 2>/dev/null | grep -o '\"ip-address\":\"[0-9][0-9.]*\"' | grep -o '[0-9][0-9.]*' | grep -v '127.0.0.1' | grep -v ':' | head -1" || echo "")
+        # Use || echo "" to prevent set -e from exiting on failure
+        VM_IP=$(ssh ${PROXMOX_USER}@${PROXMOX_HOST} "qm guest cmd ${BUILD_VM_ID} network-get-interfaces 2>/dev/null | grep -o '\"ip-address\":\"[0-9][0-9.]*\"' | grep -o '[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}' | grep -v '127.0.0.1' | head -1" 2>/dev/null || echo "")
 
         if [ -n "${VM_IP}" ] && [ "${VM_IP}" != "." ] && [ "${VM_IP}" != ".." ]; then
             echo "✓ Successfully detected IP via guest agent: ${VM_IP}"
