@@ -16,6 +16,12 @@ echo "Configure image: [$kiwi_iname]..."
 suseSetupProduct
 
 #======================================
+# Force IPv4 for package operations
+#--------------------------------------
+echo "Configuring IPv4 preference for faster downloads..."
+export ZYPP_MEDIA_CURL_IPRESOLVE=4
+
+#======================================
 # System Update
 #--------------------------------------
 echo "Updating system packages to latest versions..."

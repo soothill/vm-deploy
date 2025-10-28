@@ -107,11 +107,31 @@ chmod +x "${SCRIPT_DIR}/config.sh"
 # Build the image
 echo "Building image with KIWI..."
 echo "This may take 10-30 minutes depending on your internet connection..."
+echo "Forcing IPv4 for all downloads to avoid slow IPv6 connections..."
+
+# Force IPv4 for all network operations during KIWI build
+# This prevents slow IPv6 fallback behavior
+export ZYPP_MEDIA_CURL_IPRESOLVE=4
+export ZYPPER_MEDIANETWORK=4
+
+# Also configure system-wide IPv4 preference
+echo "Configuring IPv4 preference..."
+if [ -f /etc/gai.conf ]; then
+    # Backup original
+    cp /etc/gai.conf /etc/gai.conf.bak 2>/dev/null || true
+    # Prefer IPv4 over IPv6
+    echo "precedence ::ffff:0:0/96  100" >> /etc/gai.conf
+fi
 
 kiwi-ng --type oem \
     system build \
     --description "${SCRIPT_DIR}" \
     --target-dir "${BUILD_DIR}"
+
+# Restore gai.conf if we modified it
+if [ -f /etc/gai.conf.bak ]; then
+    mv /etc/gai.conf.bak /etc/gai.conf
+fi
 
 # Find the generated qcow2 image
 GENERATED_IMAGE=$(find "${BUILD_DIR}" -name "*.qcow2" | head -n 1)
