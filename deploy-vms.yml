@@ -18,23 +18,37 @@
 
     - name: Install required Python libraries (if missing)
       ansible.builtin.shell: |
-        pip3 install --user --break-system-packages proxmoxer requests 2>/dev/null || \
-        pip3 install --user proxmoxer requests 2>/dev/null || \
-        pip install --user proxmoxer requests 2>/dev/null || \
-        python3 -m pip install --user proxmoxer requests
+        pip3 install --user --break-system-packages proxmoxer requests 2>&1 || \
+        pip3 install --user proxmoxer requests 2>&1 || \
+        pip install --user proxmoxer requests 2>&1 || \
+        python3 -m pip install --user proxmoxer requests 2>&1
       delegate_to: localhost
       run_once: true
       when: pip_check.rc != 0
       ignore_errors: true
       register: pip_install
-      changed_when: "'Successfully installed' in pip_install.stdout"
+      become: false
+      changed_when: false
 
-    - name: Show installation instructions if pip install failed
+    - name: Verify libraries are installed after installation attempt
+      ansible.builtin.command:
+        cmd: python3 -c "import proxmoxer, requests"
+      delegate_to: localhost
+      run_once: true
+      register: pip_verify
+      failed_when: false
+      changed_when: false
+      when: pip_check.rc != 0
+
+    - name: Show installation instructions if libraries still missing
       ansible.builtin.fail:
         msg: |
           Required Python libraries (proxmoxer, requests) are not installed.
 
           Please install them manually:
+            pip3 install --user --break-system-packages proxmoxer requests
+
+          Or:
             pip3 install --user proxmoxer requests
 
           Or with sudo:
@@ -43,7 +57,7 @@
           Then run 'make deploy' again.
       when:
         - pip_check.rc != 0
-        - pip_install.failed | default(false)
+        - pip_verify.rc != 0
 
     - name: Check if custom OpenSUSE image exists
       ansible.builtin.stat:
