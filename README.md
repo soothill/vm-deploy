@@ -48,32 +48,34 @@ Configure these key settings in [.env](.env.example):
 
 **Need custom image storage?** See [IMAGE_CONFIGURATION.md](IMAGE_CONFIGURATION.md) for detailed configuration options.
 
-### Step 2: Build the OpenSUSE Image (One-Time, 15-40 min)
+### Step 2: Build the OpenSUSE Image (One-Time, 20-45 min)
+
+**RECOMMENDED: Use Dedicated Build VM** (works best)
 
 ```bash
-# Upload KIWI build files to Proxmox
-make upload-kiwi
+# Deploy OpenSUSE build VM (one-time, ~5 min)
+make deploy-build-vm
 
-# Build the image on Proxmox host
+# Build image on the build VM (~15-40 min)
+make build-image-remote
+```
+
+The build VM approach:
+- Creates a dedicated OpenSUSE VM on Proxmox for building
+- KIWI works natively on OpenSUSE (full support)
+- Builds image and transfers it to Proxmox automatically
+- VM can be reused for future builds
+- See [BUILD_VM_GUIDE.md](BUILD_VM_GUIDE.md) for complete guide
+
+**Alternative: Direct Build on Proxmox** (legacy method)
+
+```bash
+# Build directly on Proxmox host
+make upload-kiwi
 make build-image
 ```
 
-Or manually:
-```bash
-ssh root@proxmox
-cd /root/kiwi
-./build-image.sh
-```
-
-The build process will:
-- Detect OS (Proxmox/Debian, OpenSUSE, RHEL, etc.)
-- Install KIWI if needed (using apt-get on Proxmox)
-- Build minimal OpenSUSE Leap 15.6 image
-- Run zypper update to install all latest packages
-- Install and configure avahi + lldpd
-- Copy image to `/var/lib/vz/template/iso/opensuse-leap-custom.qcow2`
-
-**Note:** The script automatically detects Proxmox (Debian-based) and uses `apt-get` to install KIWI. See [PROXMOX_KIWI_SETUP.md](PROXMOX_KIWI_SETUP.md) for details.
+Note: Direct build on Proxmox (Debian-based) may have compatibility issues. Build VM method is recommended for production use.
 
 ### Step 3: Deploy VMs (2-5 minutes)
 

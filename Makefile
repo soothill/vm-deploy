@@ -1,6 +1,7 @@
-.PHONY: help all deploy configure remove clean build-image check-image \
+.PHONY: help all deploy configure remove clean build-image build-image-remote check-image \
         deploy-full status update test-connection generate-config generate-inventory \
-        deploy-only configure-only remove-confirm list-vms vm-status
+        deploy-only configure-only remove-confirm list-vms vm-status \
+        deploy-build-vm build-vm-status remove-build-vm ssh-build-vm
 
 # Load environment variables from .env if it exists
 -include .env
@@ -106,7 +107,20 @@ endif
 
 ##@ Image Management
 
-build-image: ## Build OpenSUSE image on Proxmox host
+build-image-remote: ## Build image on dedicated build VM (RECOMMENDED)
+	@echo "$(BLUE)Building image on dedicated OpenSUSE build VM...$(NC)"
+	@echo "$(YELLOW)This is the RECOMMENDED method for building KIWI images$(NC)"
+	@echo ""
+	@if [ ! -f build-vm/build-vm-ip.txt ] && [ -z "$(BUILD_VM_IP)" ]; then \
+		echo "$(RED)ERROR: Build VM not configured!$(NC)"; \
+		echo ""; \
+		echo "Please run: make deploy-build-vm"; \
+		echo "Or set BUILD_VM_IP in .env"; \
+		exit 1; \
+	fi
+	@./build-vm/build-and-transfer.sh
+
+build-image: ## Build OpenSUSE image on Proxmox host (legacy method)
 	@echo "$(BLUE)Building OpenSUSE image on Proxmox host...$(NC)"
 	@echo "This will connect to Proxmox and run the KIWI build"
 	@if [ -z "$(PROXMOX_API_HOST)" ]; then \
@@ -140,6 +154,43 @@ upload-kiwi: check-env ## Upload KIWI build directory to Proxmox
 	@scp -r kiwi/* $(PROXMOX_SSH_USER)@$(PROXMOX_API_HOST):$(KIWI_BUILD_DIR)/
 	@echo "$(GREEN)Upload completed!$(NC)"
 	@echo "$(YELLOW)Build directory: $(KIWI_BUILD_DIR)$(NC)"
+
+##@ Build VM Management
+
+deploy-build-vm: check-env ## Deploy dedicated OpenSUSE build VM for KIWI
+	@echo "$(BLUE)Deploying dedicated build VM...$(NC)"
+	@echo "$(YELLOW)This creates a separate OpenSUSE VM for building images$(NC)"
+	@echo ""
+	@./build-vm/deploy-build-vm.sh
+
+build-vm-status: check-env ## Check build VM status
+	@echo "$(BLUE)Checking build VM status...$(NC)"
+	@if [ -f build-vm/build-vm-ip.txt ]; then \
+		. build-vm/build-vm-ip.txt; \
+		echo "$(GREEN)Build VM Configuration:$(NC)"; \
+		echo "  VM ID: $(BUILD_VM_ID)"; \
+		echo "  VM Name: $(BUILD_VM_NAME)"; \
+		echo "  IP Address: $$BUILD_VM_IP"; \
+		echo ""; \
+		ssh $(PROXMOX_SSH_USER)@$(PROXMOX_API_HOST) "qm status $(BUILD_VM_ID)" || echo "$(RED)VM not found$(NC)"; \
+	else \
+		echo "$(YELLOW)Build VM not deployed yet$(NC)"; \
+		echo "Run: make deploy-build-vm"; \
+	fi
+
+remove-build-vm: check-env ## Remove the build VM
+	@./build-vm/remove-build-vm.sh
+
+ssh-build-vm: ## SSH into the build VM
+	@if [ -f build-vm/build-vm-ip.txt ]; then \
+		. build-vm/build-vm-ip.txt; \
+		echo "$(BLUE)Connecting to build VM at $$BUILD_VM_IP...$(NC)"; \
+		ssh root@$$BUILD_VM_IP; \
+	else \
+		echo "$(RED)ERROR: Build VM not deployed$(NC)"; \
+		echo "Run: make deploy-build-vm"; \
+		exit 1; \
+	fi
 
 ##@ VM Operations
 
