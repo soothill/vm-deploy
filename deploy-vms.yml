@@ -268,30 +268,6 @@
       when: auto_start | default(true)
       changed_when: true
 
-    - name: Wait for VMs to be reachable
-      ansible.builtin.wait_for:
-        host: "{{ item.ip }}"
-        port: 22
-        delay: 10
-        timeout: 300
-      loop: "{{ vms }}"
-      when: 
-        - auto_start | default(true)
-        - item.ip is defined
-      delegate_to: localhost
-
-    - name: Import GitHub SSH keys to VMs
-      ansible.builtin.shell: |
-        sshpass -p '{{ vm_root_password | default("opensuse") }}' ssh -o StrictHostKeyChecking=no root@{{ item.ip }} \
-          "/usr/local/bin/import-github-keys.sh {{ github_username }} root"
-      loop: "{{ vms }}"
-      when:
-        - github_username is defined
-        - github_username | length > 0
-        - item.ip is defined
-      ignore_errors: true
-      changed_when: true
-
     - name: Display VM deployment summary
       ansible.builtin.debug:
         msg: |
@@ -306,8 +282,10 @@
           Mon Disk: {{ mon_disk_size | default('100G') }} on {{ storage_pool }} (UNFORMATTED - for Ceph MON)
           Network 1: {{ private_bridge }} (Private)
           Network 2: {{ public_bridge }} (Public)
-          {% if item.ip is defined %}IP: {{ item.ip }}{% endif %}
-          {% if github_username is defined and github_username | length > 0 %}GitHub SSH keys imported for: {{ github_username }}{% endif %}
-          Services: avahi-daemon (mDNS), lldpd (network discovery)
+          {% if item.ip is defined %}Target IP: {{ item.ip }}{% endif %}
+
+          Next steps:
+          1. Update inventory-vms.ini with actual VM IPs
+          2. Run: make configure
           ===============================================
       loop: "{{ vms }}"
