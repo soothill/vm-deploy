@@ -38,6 +38,12 @@ make init
 make edit-env
 ```
 
+**Updating existing configuration:** If you already have a `.env` file and pulled new changes:
+```bash
+make update-env  # Adds new variables, preserves your values
+```
+See [ENV_MANAGEMENT.md](ENV_MANAGEMENT.md) for details.
+
 Configure these key settings in [.env](.env.example):
 - Proxmox API credentials and host
 - **Image storage path** (customize where the image is stored)

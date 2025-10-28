@@ -1,7 +1,7 @@
 .PHONY: help all deploy configure remove clean build-image build-image-remote check-image \
         deploy-full status update test-connection generate-config generate-inventory \
         deploy-only configure-only remove-confirm list-vms vm-status \
-        deploy-build-vm build-vm-status remove-build-vm ssh-build-vm
+        deploy-build-vm build-vm-status remove-build-vm ssh-build-vm update-env
 
 # Load environment variables from .env if it exists
 -include .env
@@ -235,6 +235,12 @@ edit-vm-inventory: ## Edit VM inventory (for configure step)
 
 edit-env: ## Edit environment variables file
 	@$${EDITOR:-vim} .env
+
+update-env: ## Update .env with new variables from .env.example
+	@echo "$(BLUE)Updating .env with new variables from .env.example...$(NC)"
+	@echo "$(YELLOW)This will preserve your existing values$(NC)"
+	@echo ""
+	@./scripts/update-env.sh
 
 ##@ Testing & Validation
 
