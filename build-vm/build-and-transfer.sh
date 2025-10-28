@@ -19,8 +19,37 @@ fi
 
 # Configuration
 BUILD_VM_IP="${BUILD_VM_IP:-}"
+BUILD_VM_ID="${BUILD_VM_ID:-100}"
 PROXMOX_HOST="${PROXMOX_API_HOST:-proxmox}"
 PROXMOX_USER="${PROXMOX_SSH_USER:-root}"
+
+# Auto-detect build VM IP if not set
+if [ -z "${BUILD_VM_IP}" ]; then
+    echo "BUILD_VM_IP not set, attempting to auto-detect from VM ${BUILD_VM_ID}..."
+
+    # Check if build VM exists
+    if ssh ${PROXMOX_USER}@${PROXMOX_HOST} "qm status ${BUILD_VM_ID} >/dev/null 2>&1"; then
+        VM_STATUS=$(ssh ${PROXMOX_USER}@${PROXMOX_HOST} "qm status ${BUILD_VM_ID} | awk '{print \$2}'")
+
+        if [ "${VM_STATUS}" != "running" ]; then
+            echo "Build VM ${BUILD_VM_ID} is not running (status: ${VM_STATUS})"
+            echo "Starting build VM..."
+            ssh ${PROXMOX_USER}@${PROXMOX_HOST} "qm start ${BUILD_VM_ID}"
+            echo "Waiting 30 seconds for VM to boot..."
+            sleep 30
+        fi
+
+        # Try to get IP via QEMU guest agent
+        echo "Detecting IP address via QEMU guest agent..."
+        BUILD_VM_IP=$(ssh ${PROXMOX_USER}@${PROXMOX_HOST} "qm guest cmd ${BUILD_VM_ID} network-get-interfaces 2>/dev/null | grep -o '\"ip-address\":\"[0-9.]*\"' | grep -o '[0-9.]*' | grep -v 127.0.0.1 | head -1" || echo "")
+
+        if [ -n "${BUILD_VM_IP}" ]; then
+            echo "✓ Detected build VM IP: ${BUILD_VM_IP}"
+            # Save for future use
+            echo "BUILD_VM_IP=${BUILD_VM_IP}" > "${SCRIPT_DIR}/build-vm-ip.txt"
+        fi
+    fi
+fi
 
 # Image configuration
 if [ -n "${IMAGE_PATH}" ]; then
@@ -46,11 +75,30 @@ echo ""
 
 # Validate configuration
 if [ -z "${BUILD_VM_IP}" ]; then
-    echo "ERROR: BUILD_VM_IP not set!"
+    echo "=========================================="
+    echo "ERROR: Could Not Determine Build VM IP"
+    echo "=========================================="
     echo ""
-    echo "Please set BUILD_VM_IP in .env or run:"
-    echo "  ./build-vm/deploy-build-vm.sh"
+    echo "The build VM IP address could not be auto-detected."
     echo ""
+    echo "Options to resolve:"
+    echo ""
+    echo "1. Deploy a new build VM:"
+    echo "   make deploy-build-vm"
+    echo ""
+    echo "2. Manually set BUILD_VM_IP if you know it:"
+    echo "   # Add to .env:"
+    echo "   export BUILD_VM_IP=\"192.168.1.x\""
+    echo ""
+    echo "3. Check if build VM (ID: ${BUILD_VM_ID}) exists and is running:"
+    echo "   ssh ${PROXMOX_USER}@${PROXMOX_HOST} 'qm list | grep ${BUILD_VM_ID}'"
+    echo "   ssh ${PROXMOX_USER}@${PROXMOX_HOST} 'qm status ${BUILD_VM_ID}'"
+    echo ""
+    echo "4. Get IP from Proxmox console:"
+    echo "   ssh ${PROXMOX_USER}@${PROXMOX_HOST} 'qm terminal ${BUILD_VM_ID}'"
+    echo "   # In console, run: ip a"
+    echo ""
+    echo "=========================================="
     exit 1
 fi
 

@@ -1,7 +1,7 @@
 .PHONY: help all deploy configure remove clean build-image build-image-remote check-image \
         deploy-full status update test-connection generate-config generate-inventory \
         deploy-only configure-only remove-confirm list-vms vm-status \
-        deploy-build-vm build-vm-status remove-build-vm ssh-build-vm update-env
+        deploy-build-vm build-vm-status remove-build-vm detect-build-vm-ip ssh-build-vm update-env
 
 # Load environment variables from .env if it exists
 -include .env
@@ -180,6 +180,39 @@ build-vm-status: check-env ## Check build VM status
 
 remove-build-vm: check-env ## Remove the build VM
 	@./build-vm/remove-build-vm.sh
+
+detect-build-vm-ip: check-env ## Auto-detect and save build VM IP address
+	@echo "$(BLUE)Detecting build VM IP address...$(NC)"
+	@BUILD_VM_ID=$${BUILD_VM_ID:-100}; \
+	if ssh $(PROXMOX_SSH_USER)@$(PROXMOX_API_HOST) "qm status $$BUILD_VM_ID >/dev/null 2>&1"; then \
+		VM_STATUS=$$(ssh $(PROXMOX_SSH_USER)@$(PROXMOX_API_HOST) "qm status $$BUILD_VM_ID | awk '{print \$$2}'"); \
+		if [ "$$VM_STATUS" != "running" ]; then \
+			echo "$(YELLOW)Build VM $$BUILD_VM_ID is not running (status: $$VM_STATUS)$(NC)"; \
+			echo "Starting build VM..."; \
+			ssh $(PROXMOX_SSH_USER)@$(PROXMOX_API_HOST) "qm start $$BUILD_VM_ID"; \
+			echo "Waiting 30 seconds for VM to boot..."; \
+			sleep 30; \
+		fi; \
+		echo "Querying QEMU guest agent for IP address..."; \
+		BUILD_VM_IP=$$(ssh $(PROXMOX_SSH_USER)@$(PROXMOX_API_HOST) "qm guest cmd $$BUILD_VM_ID network-get-interfaces 2>/dev/null | grep -o '\"ip-address\":\"[0-9.]*\"' | grep -o '[0-9.]*' | grep -v 127.0.0.1 | head -1" || echo ""); \
+		if [ -n "$$BUILD_VM_IP" ]; then \
+			echo "$(GREEN)✓ Detected build VM IP: $$BUILD_VM_IP$(NC)"; \
+			echo "BUILD_VM_IP=$$BUILD_VM_IP" > build-vm/build-vm-ip.txt; \
+			echo "$(GREEN)✓ Saved to build-vm/build-vm-ip.txt$(NC)"; \
+		else \
+			echo "$(RED)ERROR: Could not detect IP address$(NC)"; \
+			echo ""; \
+			echo "Please check:"; \
+			echo "  1. QEMU guest agent is running in VM"; \
+			echo "  2. VM has network connectivity"; \
+			echo "  3. Set BUILD_VM_IP manually in .env"; \
+			exit 1; \
+		fi; \
+	else \
+		echo "$(RED)ERROR: Build VM $$BUILD_VM_ID does not exist$(NC)"; \
+		echo "Run: make deploy-build-vm"; \
+		exit 1; \
+	fi
 
 ssh-build-vm: ## SSH into the build VM
 	@if [ -f build-vm/build-vm-ip.txt ]; then \

@@ -70,8 +70,18 @@ The build VM approach:
 - Creates a dedicated OpenSUSE VM on Proxmox for building
 - KIWI works natively on OpenSUSE (full support)
 - Builds image and transfers it to Proxmox automatically
+- **Auto-detects VM IP via DHCP** - no manual configuration needed
 - VM can be reused for future builds
 - See [BUILD_VM_GUIDE.md](BUILD_VM_GUIDE.md) for complete guide
+
+**Troubleshooting:** If the IP detection fails, you can manually detect it:
+```bash
+# Auto-detect and save build VM IP
+make detect-build-vm-ip
+
+# Or set manually in .env
+export BUILD_VM_IP="192.168.1.x"
+```
 
 **Alternative: Direct Build on Proxmox** (legacy method)
 
