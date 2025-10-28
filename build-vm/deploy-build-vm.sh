@@ -350,6 +350,25 @@ done
 ssh -o StrictHostKeyChecking=no root@${VM_IP} bash <<'EOFVM'
 set -e
 
+echo "Waiting for cloud-init to complete..."
+# Wait for cloud-init to finish (it may be running package updates)
+cloud-init status --wait 2>/dev/null || echo "cloud-init not available or already finished"
+
+echo "Waiting for zypper to become available..."
+# Wait for zypper lock to be released (cloud-init or other processes may be using it)
+for i in {1..30}; do
+    if zypper refresh >/dev/null 2>&1; then
+        echo "✓ Zypper is available"
+        break
+    fi
+    if [ \$i -eq 1 ]; then
+        echo "  Zypper is locked (likely by cloud-init), waiting..."
+    else
+        echo "  Attempt \$i/30: Still waiting for zypper lock to release..."
+    fi
+    sleep 10
+done
+
 echo "Updating system..."
 zypper refresh
 zypper update -y
