@@ -369,6 +369,13 @@ for i in {1..30}; do
     sleep 10
 done
 
+echo "Installing CA certificates..."
+# Install CA certificates first to avoid SSL issues
+zypper install -y --no-refresh ca-certificates ca-certificates-mozilla
+
+echo "Updating CA certificate store..."
+update-ca-certificates
+
 echo "Updating system..."
 zypper refresh
 zypper update -y
