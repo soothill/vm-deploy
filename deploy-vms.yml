@@ -18,13 +18,36 @@
         msg: "OpenSUSE image not found at {{ opensuse_image_path }}. Please build it first using: cd kiwi && ./build-image.sh"
       when: not image_check.stat.exists
 
-    - name: Check if VMs already exist
+    - name: Check if VMs or Containers with these IDs already exist
       ansible.builtin.shell: |
-        qm status {{ item.vmid }} >/dev/null 2>&1 && echo "exists" || echo "absent"
+        IS_VM=""
+        IS_CT=""
+        if qm status {{ item.vmid }} >/dev/null 2>&1; then
+          IS_VM="yes"
+        fi
+        if pct status {{ item.vmid }} >/dev/null 2>&1; then
+          IS_CT="yes"
+        fi
+
+        if [ -n "$IS_VM" ] || [ -n "$IS_CT" ]; then
+          if [ -n "$IS_VM" ]; then
+            echo "exists_vm"
+          else
+            echo "exists_ct"
+          fi
+        else
+          echo "absent"
+        fi
       loop: "{{ vms }}"
       register: vm_exists
       changed_when: false
       failed_when: false
+
+    - name: Fail if VM ID is already used by a Container
+      ansible.builtin.fail:
+        msg: "Cannot create VM {{ item.item.vmid }} ({{ item.item.name }}) - ID is already used by an LXC Container (CT {{ item.item.vmid }}). Please either remove the container or use a different VM ID in vars/vm_config.yml"
+      loop: "{{ vm_exists.results }}"
+      when: item.stdout == "exists_ct"
 
     - name: Create VMs with basic configuration using qm
       ansible.builtin.shell: |
