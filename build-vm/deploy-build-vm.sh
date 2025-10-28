@@ -55,13 +55,55 @@ echo ""
 # Check if VM already exists
 echo "Checking if VM ${BUILD_VM_ID} already exists..."
 if ssh ${PROXMOX_USER}@${PROXMOX_HOST} "qm status ${BUILD_VM_ID} >/dev/null 2>&1"; then
-    echo "WARNING: VM ${BUILD_VM_ID} already exists!"
-    read -p "Do you want to destroy and recreate it? (yes/no): " -r
+    echo ""
+    echo "=========================================="
+    echo "ERROR: VM ${BUILD_VM_ID} Already Exists!"
+    echo "=========================================="
+
+    # Get VM details
+    VM_STATUS=$(ssh ${PROXMOX_USER}@${PROXMOX_HOST} "qm status ${BUILD_VM_ID} | awk '{print \$2}'")
+    VM_NAME=$(ssh ${PROXMOX_USER}@${PROXMOX_HOST} "qm config ${BUILD_VM_ID} | grep '^name:' | awk '{print \$2}'")
+
+    echo "VM Details:"
+    echo "  VM ID: ${BUILD_VM_ID}"
+    echo "  VM Name: ${VM_NAME}"
+    echo "  Status: ${VM_STATUS}"
+    echo ""
+    echo "Options:"
+    echo "  1. Destroy and recreate this VM"
+    echo "  2. Use a different VM ID"
+    echo "  3. Keep existing VM (if it's already configured)"
+    echo ""
+    echo "=========================================="
+    echo ""
+
+    read -p "Do you want to destroy VM ${BUILD_VM_ID} and recreate it? (yes/no): " -r
     if [[ $REPLY =~ ^[Yy][Ee][Ss]$ ]]; then
-        echo "Stopping and removing existing VM..."
-        ssh ${PROXMOX_USER}@${PROXMOX_HOST} "qm stop ${BUILD_VM_ID} || true; qm destroy ${BUILD_VM_ID}"
+        echo ""
+        echo "Stopping and removing existing VM ${BUILD_VM_ID} (${VM_NAME})..."
+        ssh ${PROXMOX_USER}@${PROXMOX_HOST} "qm stop ${BUILD_VM_ID} || true"
+        echo "Waiting for VM to stop..."
+        sleep 5
+        ssh ${PROXMOX_USER}@${PROXMOX_HOST} "qm destroy ${BUILD_VM_ID}"
+        echo "VM ${BUILD_VM_ID} destroyed."
+        echo ""
     else
-        echo "Aborted. Use a different BUILD_VM_ID in .env"
+        echo ""
+        echo "=========================================="
+        echo "Deployment Aborted"
+        echo "=========================================="
+        echo ""
+        echo "To use a different VM ID, edit your .env file:"
+        echo "  export BUILD_VM_ID=\"101\"  # Or any available VM ID"
+        echo ""
+        echo "To check available VM IDs:"
+        echo "  ssh ${PROXMOX_USER}@${PROXMOX_HOST} 'qm list'"
+        echo ""
+        echo "If VM ${BUILD_VM_ID} is already your build VM:"
+        echo "  You can use it directly: make build-image-remote"
+        echo "  Or check its status: make build-vm-status"
+        echo ""
+        echo "=========================================="
         exit 1
     fi
 fi

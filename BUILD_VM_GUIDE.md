@@ -195,19 +195,65 @@ scp root@<BUILD_VM_IP>:/root/kiwi-builds/output/*.qcow2 \
 **Problem:** Deployment fails or hangs
 
 **Solutions:**
+
+#### VM ID Already Exists
+
+The deployment script automatically checks if the VM ID is already in use:
+
 ```bash
-# Check if VM ID is available
-ssh root@proxmox "qm list | grep 100"
+# When deploying, if VM ID exists, you'll see:
+# ==========================================
+# ERROR: VM 100 Already Exists!
+# ==========================================
+# VM Details:
+#   VM ID: 100
+#   VM Name: existing-vm
+#   Status: running
+#
+# Options:
+#   1. Destroy and recreate this VM
+#   2. Use a different VM ID
+#   3. Keep existing VM (if it's already configured)
+```
 
-# Use different VM ID if 100 is taken
-# In .env:
-export BUILD_VM_ID="101"
+**Option 1: Use a different VM ID**
+```bash
+# Check which VM IDs are available
+ssh root@proxmox "qm list"
 
+# In .env, change to an available ID:
+export BUILD_VM_ID="101"  # or 102, 103, etc.
+
+# Deploy again
+make deploy-build-vm
+```
+
+**Option 2: Destroy and recreate**
+```bash
+# The script will ask for confirmation
+# Type 'yes' when prompted to destroy the existing VM
+
+# Or manually:
+ssh root@proxmox "qm stop 100 && qm destroy 100"
+make deploy-build-vm
+```
+
+**Option 3: Use existing VM**
+```bash
+# If the existing VM is already your build VM:
+make build-vm-status  # Check it's configured correctly
+make build-image-remote  # Use it directly
+```
+
+#### Storage Issues
+
+```bash
 # Check storage exists
-ssh root@proxmox "pvesm list"
+ssh root@proxmox "pvesm status"
 
 # Use different storage if needed
-export BUILD_VM_STORAGE="local"
+# In .env:
+export BUILD_VM_STORAGE="local"  # or local-lvm, nvme-pool, etc.
 ```
 
 ### Cannot Detect Build VM IP
