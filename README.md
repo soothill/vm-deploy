@@ -40,10 +40,13 @@ make edit-env
 
 Configure these key settings in [.env](.env.example):
 - Proxmox API credentials and host
+- **Image storage path** (customize where the image is stored)
 - Storage pool and disk sizes
 - Network bridges
 - VM resource defaults
 - GitHub username (optional)
+
+**Need custom image storage?** See [IMAGE_CONFIGURATION.md](IMAGE_CONFIGURATION.md) for detailed configuration options.
 
 ### Step 2: Build the OpenSUSE Image (One-Time, 15-40 min)
 

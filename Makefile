@@ -25,6 +25,11 @@ CONFIGURE_PLAYBOOK := configure-vms.yml
 REMOVE_PLAYBOOK := remove-vms.yml
 ANSIBLE_OPTS :=
 
+# Image configuration with defaults
+OPENSUSE_IMAGE_NAME ?= opensuse-leap-custom.qcow2
+KIWI_BUILD_DIR ?= /root/kiwi
+OPENSUSE_IMAGE_PATH ?= /var/lib/vz/template/iso/$(OPENSUSE_IMAGE_NAME)
+
 # Variables for interactive options
 VERBOSE ?= 0
 CHECK ?= 0
@@ -108,9 +113,18 @@ build-image: ## Build OpenSUSE image on Proxmox host
 		echo "$(RED)ERROR: PROXMOX_API_HOST not set. Create .env file first.$(NC)"; \
 		exit 1; \
 	fi
+	@echo "$(GREEN)Build configuration:$(NC)"
+	@echo "  Host: $(PROXMOX_API_HOST)"
+	@echo "  Build directory: $(KIWI_BUILD_DIR)"
+	@echo "  Image destination: $(OPENSUSE_IMAGE_PATH)"
+	@echo "  Image name: $(OPENSUSE_IMAGE_NAME)"
+	@echo ""
 	@echo "Connecting to $(PROXMOX_API_HOST)..."
-	@ssh $(PROXMOX_SSH_USER)@$(PROXMOX_API_HOST) "cd /root/kiwi && ./build-image.sh"
+	@ssh $(PROXMOX_SSH_USER)@$(PROXMOX_API_HOST) \
+		"cd $(KIWI_BUILD_DIR) && \
+		 IMAGE_PATH=$(OPENSUSE_IMAGE_PATH) IMAGE_NAME=$(OPENSUSE_IMAGE_NAME) ./build-image.sh"
 	@echo "$(GREEN)Image build completed!$(NC)"
+	@echo "$(GREEN)Image location: $(OPENSUSE_IMAGE_PATH)$(NC)"
 
 check-image: check-env ## Check if OpenSUSE image exists on Proxmox
 	@echo "$(BLUE)Checking for OpenSUSE image...$(NC)"
@@ -121,8 +135,11 @@ check-image: check-env ## Check if OpenSUSE image exists on Proxmox
 
 upload-kiwi: check-env ## Upload KIWI build directory to Proxmox
 	@echo "$(BLUE)Uploading KIWI build directory to Proxmox...$(NC)"
-	@scp -r kiwi/ $(PROXMOX_SSH_USER)@$(PROXMOX_API_HOST):/root/
+	@echo "  Destination: $(PROXMOX_SSH_USER)@$(PROXMOX_API_HOST):$(KIWI_BUILD_DIR)"
+	@ssh $(PROXMOX_SSH_USER)@$(PROXMOX_API_HOST) "mkdir -p $(KIWI_BUILD_DIR)"
+	@scp -r kiwi/* $(PROXMOX_SSH_USER)@$(PROXMOX_API_HOST):$(KIWI_BUILD_DIR)/
 	@echo "$(GREEN)Upload completed!$(NC)"
+	@echo "$(YELLOW)Build directory: $(KIWI_BUILD_DIR)$(NC)"
 
 ##@ VM Operations
 
@@ -224,6 +241,10 @@ status: ## Show current deployment status
 	@echo "$(GREEN)Storage:$(NC)"
 	@[ -n "$(STORAGE_POOL)" ] && echo "  Pool: $(STORAGE_POOL)" || echo "  Pool: $(RED)not configured$(NC)"
 	@[ -n "$(DATA_DISK_SIZE)" ] && echo "  Data disk size: $(DATA_DISK_SIZE)" || echo "  Data disk size: $(RED)not configured$(NC)"
+	@echo ""
+	@echo "$(GREEN)Image:$(NC)"
+	@[ -n "$(OPENSUSE_IMAGE_PATH)" ] && echo "  Path: $(OPENSUSE_IMAGE_PATH)" || echo "  Path: $(RED)not configured$(NC)"
+	@[ -n "$(OPENSUSE_IMAGE_NAME)" ] && echo "  Name: $(OPENSUSE_IMAGE_NAME)" || echo "  Name: $(YELLOW)using default$(NC)"
 
 info: ## Show detailed configuration information
 	@echo "$(BLUE)=== Deployment Configuration ===$(NC)"
@@ -232,6 +253,11 @@ info: ## Show detailed configuration information
 	@echo "  API Host: $(PROXMOX_API_HOST)"
 	@echo "  API User: $(PROXMOX_API_USER)"
 	@echo "  Node: $(PROXMOX_NODE)"
+	@echo ""
+	@echo "$(GREEN)Image Configuration:$(NC)"
+	@echo "  Image Path: $(OPENSUSE_IMAGE_PATH)"
+	@echo "  Image Name: $(OPENSUSE_IMAGE_NAME)"
+	@echo "  Build Directory: $(KIWI_BUILD_DIR)"
 	@echo ""
 	@echo "$(GREEN)Storage Configuration:$(NC)"
 	@echo "  Storage Pool: $(STORAGE_POOL)"

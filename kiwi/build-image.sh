@@ -5,11 +5,26 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="${SCRIPT_DIR}/build"
-OUTPUT_DIR="/var/lib/vz/template/iso"
-IMAGE_NAME="opensuse-leap-custom"
+
+# Allow customization via environment variables
+# IMAGE_PATH takes precedence, otherwise derive from IMAGE_NAME
+if [ -n "${IMAGE_PATH}" ]; then
+    # Extract directory and filename from IMAGE_PATH
+    OUTPUT_DIR="$(dirname "${IMAGE_PATH}")"
+    IMAGE_NAME="$(basename "${IMAGE_PATH}" .qcow2)"
+else
+    # Use defaults or environment variables
+    IMAGE_NAME="${IMAGE_NAME:-opensuse-leap-custom}"
+    OUTPUT_DIR="${OUTPUT_DIR:-/var/lib/vz/template/iso}"
+fi
 
 echo "========================================"
 echo "Building OpenSUSE Leap Minimal Image"
+echo "========================================"
+echo "Configuration:"
+echo "  Output directory: ${OUTPUT_DIR}"
+echo "  Image name: ${IMAGE_NAME}"
+echo "  Full path: ${OUTPUT_DIR}/${IMAGE_NAME}.qcow2"
 echo "========================================"
 
 # Check if running as root
