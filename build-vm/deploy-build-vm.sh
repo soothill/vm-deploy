@@ -210,25 +210,71 @@ echo "Step 3: Starting VM..."
 ssh ${PROXMOX_USER}@${PROXMOX_HOST} "qm start ${BUILD_VM_ID}"
 
 echo ""
-echo "Step 4: Waiting for VM to boot (60 seconds)..."
-sleep 60
+echo "Step 4: Waiting for VM to boot and QEMU guest agent to start..."
+echo "This may take 2-3 minutes for cloud-init to complete..."
 
-echo ""
-echo "Step 5: Getting VM IP address..."
 if [ -n "${BUILD_VM_IP}" ]; then
+    # Static IP configured, just wait for boot
+    echo "Static IP configured: ${BUILD_VM_IP}"
+    echo "Waiting 90 seconds for cloud-init to complete..."
+    sleep 90
     VM_IP="${BUILD_VM_IP}"
 else
-    VM_IP=$(ssh ${PROXMOX_USER}@${PROXMOX_HOST} "qm guest cmd ${BUILD_VM_ID} network-get-interfaces 2>/dev/null | grep -oP '(?<=\"ip-address\":\")[0-9.]+' | grep -v 127.0.0.1 | head -1" || echo "")
+    # DHCP - need to detect IP via guest agent
+    echo "Waiting for QEMU guest agent to become available..."
+
+    VM_IP=""
+    for i in {1..24}; do
+        echo "Attempt $i/24: Checking guest agent..."
+
+        # Try to get IP via QEMU guest agent (BSD-compatible grep)
+        VM_IP=$(ssh ${PROXMOX_USER}@${PROXMOX_HOST} "qm guest cmd ${BUILD_VM_ID} network-get-interfaces 2>/dev/null | grep -o '\"ip-address\":\"[0-9.]*\"' | grep -o '[0-9.]*' | grep -v 127.0.0.1 | head -1" || echo "")
+
+        if [ -n "${VM_IP}" ]; then
+            echo "✓ Successfully detected IP address: ${VM_IP}"
+            break
+        fi
+
+        if [ $i -lt 24 ]; then
+            echo "  Guest agent not ready yet, waiting 10 seconds..."
+            sleep 10
+        fi
+    done
 
     if [ -z "${VM_IP}" ]; then
-        echo "WARNING: Could not detect IP address automatically."
-        echo "Please check VM console: ssh ${PROXMOX_USER}@${PROXMOX_HOST} 'qm terminal ${BUILD_VM_ID}'"
-        echo "Or manually set BUILD_VM_IP in .env"
+        echo ""
+        echo "=========================================="
+        echo "WARNING: Could Not Detect IP Address"
+        echo "=========================================="
+        echo ""
+        echo "The QEMU guest agent is not responding after 4 minutes."
+        echo ""
+        echo "This could mean:"
+        echo "  1. VM is still booting (cloud-init can be slow)"
+        echo "  2. QEMU guest agent is not installed/running"
+        echo "  3. Network configuration issue"
+        echo ""
+        echo "Options to resolve:"
+        echo ""
+        echo "1. Check VM console and get IP manually:"
+        echo "   ssh ${PROXMOX_USER}@${PROXMOX_HOST} 'qm terminal ${BUILD_VM_ID}'"
+        echo "   # In console, run: ip a"
+        echo "   # Then set in .env: export BUILD_VM_IP=\"<ip-address>\""
+        echo ""
+        echo "2. Wait longer and try detection again:"
+        echo "   make detect-build-vm-ip"
+        echo ""
+        echo "3. Check VM status:"
+        echo "   ssh ${PROXMOX_USER}@${PROXMOX_HOST} 'qm status ${BUILD_VM_ID}'"
+        echo "   ssh ${PROXMOX_USER}@${PROXMOX_HOST} 'qm agent ${BUILD_VM_ID} ping'"
+        echo ""
+        echo "=========================================="
         exit 1
     fi
 fi
 
-echo "VM IP: ${VM_IP}"
+echo ""
+echo "Step 5: VM IP detected: ${VM_IP}"
 
 echo ""
 echo "Step 6: Installing KIWI and dependencies on build VM..."
