@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<image schemaversion="7.5" name="opensuse-leap-custom">
+    <description type="system">
+        <author>Automated Build</author>
+        <contact>admin@example.com</contact>
+        <specification>
+            OpenSUSE Leap custom image optimized for VM deployment with cloud-init
+        </specification>
+    </description>
+    <preferences>
+        <version>1.0.0</version>
+        <packagemanager>zypper</packagemanager>
+        <locale>en_US</locale>
+        <keytable>us</keytable>
+        <timezone>UTC</timezone>
+        <rpm-excludedocs>true</rpm-excludedocs>
+        <rpm-check-signatures>false</rpm-check-signatures>
+        <bootsplash-theme>breeze</bootsplash-theme>
+        <bootloader-theme>openSUSE</bootloader-theme>
+        <type image="oem" filesystem="ext4" format="qcow2" formatoptions="compat=1.1,lazy_refcounts=on" 
+              bootpartition="false" bootkernel="custom" firmware="uefi" 
+              devicepersistency="by-uuid" btrfs_root_is_snapshot="false">
+            <oemconfig>
+                <oem-resize>true</oem-resize>
+                <oem-swap>false</oem-swap>
+            </oemconfig>
+            <bootloader name="grub2" timeout="5"/>
+            <size unit="G">10</size>
+        </type>
+    </preferences>
+    <users>
+        <user password="$1$wYJUgpM5$RXMMeASDc035eX.NbYWFl0" home="/root" name="root" groups="root"/>
+    </users>
+    <repository type="rpm-md" alias="openSUSE-Leap-15.6-OSS">
+        <source path="https://download.opensuse.org/distribution/leap/15.6/repo/oss/"/>
+    </repository>
+    <repository type="rpm-md" alias="openSUSE-Leap-15.6-Update">
+        <source path="https://download.opensuse.org/update/leap/15.6/oss/"/>
+    </repository>
+    <repository type="rpm-md" alias="openSUSE-Leap-15.6-NonOSS">
+        <source path="https://download.opensuse.org/distribution/leap/15.6/repo/non-oss/"/>
+    </repository>
+    <packages type="image">
+        <!-- Base System -->
+        <package name="patterns-base-base"/>
+        <package name="patterns-base-enhanced_base"/>
+        <package name="patterns-base-minimal_base"/>
+        
+        <!-- Kernel -->
+        <package name="kernel-default"/>
+        <package name="kernel-firmware-all"/>
+        <package name="dracut"/>
+        
+        <!-- Bootloader -->
+        <package name="grub2"/>
+        <package name="grub2-x86_64-efi"/>
+        <package name="shim"/>
+        
+        <!-- Virtualization -->
+        <package name="qemu-guest-agent"/>
+        <package name="qemu-tools"/>
+        <package name="open-vm-tools"/>
+        
+        <!-- Cloud-init and automation -->
+        <package name="cloud-init"/>
+        <package name="cloud-init-config-suse"/>
+        
+        <!-- Networking -->
+        <package name="NetworkManager"/>
+        <package name="wicked"/>
+        <package name="iproute2"/>
+        <package name="iputils"/>
+        <package name="net-tools"/>
+        <package name="openssh"/>
+        <package name="rsync"/>
+        <package name="ethtool"/>
+        
+        <!-- System tools -->
+        <package name="systemd"/>
+        <package name="systemd-sysvinit"/>
+        <package name="dbus-1"/>
+        <package name="tar"/>
+        <package name="gzip"/>
+        <package name="bzip2"/>
+        <package name="xz"/>
+        <package name="vim"/>
+        <package name="nano"/>
+        <package name="less"/>
+        <package name="which"/>
+        <package name="sudo"/>
+        <package name="curl"/>
+        <package name="wget"/>
+        <package name="htop"/>
+        <package name="iotop"/>
+        <package name="screen"/>
+        <package name="tmux"/>
+        
+        <!-- Storage and filesystem -->
+        <package name="e2fsprogs"/>
+        <package name="xfsprogs"/>
+        <package name="btrfsprogs"/>
+        <package name="lvm2"/>
+        <package name="mdadm"/>
+        <package name="parted"/>
+        <package name="dosfstools"/>
+        
+        <!-- Development tools (optional, comment out if not needed) -->
+        <package name="git"/>
+        <package name="python3"/>
+        <package name="python3-pip"/>
+        
+        <!-- Security -->
+        <package name="firewalld"/>
+        <package name="ca-certificates"/>
+        <package name="ca-certificates-mozilla"/>
+        
+        <!-- Monitoring -->
+        <package name="sysstat"/>
+        <package name="procps"/>
+        
+        <!-- Man pages -->
+        <package name="man"/>
+        <package name="man-pages"/>
+    </packages>
+    <packages type="bootstrap">
+        <package name="filesystem"/>
+        <package name="glibc-locale-base"/>
+        <package name="ca-certificates"/>
+        <package name="openSUSE-release"/>
+    </packages>
+</image>

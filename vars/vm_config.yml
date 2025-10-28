@@ -1,0 +1,78 @@
+---
+# Proxmox API Configuration
+proxmox_api_user: "root@pam"
+proxmox_api_password: "your_password_here"
+proxmox_api_host: "proxmox.example.com"
+proxmox_node: "pve"
+
+# OpenSUSE Image Configuration
+opensuse_image_path: "/var/lib/vz/template/iso/opensuse-leap-custom.qcow2"
+
+# GitHub SSH Key Configuration
+# Set your GitHub username to automatically import SSH keys during deployment
+# Leave empty to skip GitHub key import
+github_username: ""  # Example: "your-github-username"
+
+# Storage Configuration - Single NVMe Pool
+# All disks (OS and data) will be stored on the same NVMe pool
+storage_pool: "nvme-pool"           # Change to your NVMe storage pool name
+data_disk_size: "1000G"             # Size of each data disk (4 disks total per VM)
+mon_disk_size: "100G"               # Size of Ceph mon disk per VM
+
+# Network Configuration
+private_bridge: "vmbr1"   # Private network bridge
+public_bridge: "vmbr0"    # Public/separate network bridge
+
+# VM Default Settings
+vm_default_memory: 32768   # Memory in MB (32GB default)
+vm_default_cores: 8        # CPU cores (8 default)
+vm_default_sockets: 1
+vm_cpu_type: "host"
+
+# Auto-start VMs after creation
+auto_start: true
+
+# VM Definitions
+# Note: Data disks (sdb, sdc, sdd, sde) are left unformatted for Ceph OSD usage
+# Note: Mon disk (sdf) is left unformatted for Ceph MON usage
+vms:
+  - name: "ceph-node1"
+    vmid: 200
+    memory: 32768        # 32GB RAM
+    cores: 8             # 8 CPU cores
+    sockets: 1
+    onboot: 1
+    ip: "192.168.1.10"   # Optional: for wait_for task
+    
+  - name: "ceph-node2"
+    vmid: 201
+    memory: 32768
+    cores: 8
+    sockets: 1
+    onboot: 1
+    ip: "192.168.1.11"
+    
+  - name: "ceph-node3"
+    vmid: 202
+    memory: 32768
+    cores: 8
+    sockets: 1
+    onboot: 1
+    ip: "192.168.1.12"
+    
+  - name: "ceph-node4"
+    vmid: 203
+    memory: 32768
+    cores: 8
+    sockets: 1
+    onboot: 1
+    ip: "192.168.1.13"
+
+# Storage Notes:
+# - All VMs use the same NVMe storage pool for both OS and data disks
+# - OS disk: 50GB thin provisioned (scsi0)
+# - Data disks: 4 x 1TB thin provisioned (scsi1-4, left unformatted for Ceph OSD)
+# - Mon disk: 1 x 100GB thin provisioned (scsi5, left unformatted for Ceph MON)
+# - Data disks and mon disk are NOT automatically mounted or formatted
+# - Use data disks for Ceph OSD deployment after VM creation
+# - Use mon disk for Ceph MON data storage

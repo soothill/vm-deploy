@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<image schemaversion="7.5" name="opensuse-leap-minimal">
+    <description type="system">
+        <author>Ansible Automation</author>
+        <contact>admin@example.com</contact>
+        <specification>Minimal OpenSUSE Leap 15.6 for quick VM deployment</specification>
+    </description>
+    <preferences>
+        <version>1.0.0</version>
+        <packagemanager>zypper</packagemanager>
+        <locale>en_US</locale>
+        <keytable>us</keytable>
+        <timezone>UTC</timezone>
+        <rpm-excludedocs>true</rpm-excludedocs>
+        <rpm-check-signatures>false</rpm-check-signatures>
+        <bootsplash-theme>breeze</bootsplash-theme>
+        <bootloader-theme>openSUSE</bootloader-theme>
+        <type 
+            image="oem" 
+            filesystem="ext4" 
+            kernelcmdline="console=tty0 console=ttyS0,115200 net.ifnames=0 biosdevname=0"
+            firmware="efi"
+            format="qcow2"
+            formatoptions="compression=on,lazy_refcounts=on"
+            bootpartition="false"
+            devicepersistency="by-uuid"
+            btrfs_root_is_snapshot="false">
+            <oemconfig>
+                <oem-resize>true</oem-resize>
+                <oem-swap>false</oem-swap>
+                <oem-swapsize>0</oem-swapsize>
+            </oemconfig>
+            <bootloader name="grub2" console="serial" timeout="1"/>
+            <size unit="G">10</size>
+        </type>
+    </preferences>
+    
+    <users>
+        <user password="$6$rounds=100000$randomsalt$hashed_password_here" home="/root" name="root" groups="root"/>
+        <user password="$6$rounds=100000$randomsalt$hashed_password_here" home="/home/admin" name="admin" groups="users,wheel" shell="/bin/bash"/>
+    </users>
+    
+    <repository type="rpm-md" alias="repo-oss" priority="1">
+        <source path="http://download.opensuse.org/distribution/leap/15.6/repo/oss/"/>
+    </repository>
+    
+    <repository type="rpm-md" alias="repo-update" priority="2">
+        <source path="http://download.opensuse.org/update/leap/15.6/oss/"/>
+    </repository>
+    
+    <packages type="image">
+        <!-- Base System -->
+        <package name="patterns-base-minimal_base"/>
+        <package name="systemd"/>
+        <package name="dracut"/>
+        <package name="grub2"/>
+        <package name="grub2-x86_64-efi"/>
+        <package name="shim"/>
+        <package name="kernel-default"/>
+        <package name="timezone"/>
+        
+        <!-- Essential Tools -->
+        <package name="openssh"/>
+        <package name="sudo"/>
+        <package name="vim"/>
+        <package name="less"/>
+        <package name="curl"/>
+        <package name="wget"/>
+        <package name="rsync"/>
+        <package name="tar"/>
+        <package name="gzip"/>
+        <package name="bzip2"/>
+        <package name="xz"/>
+        
+        <!-- Network Tools -->
+        <package name="iproute2"/>
+        <package name="iputils"/>
+        <package name="net-tools"/>
+        <package name="NetworkManager"/>
+        <package name="avahi"/>
+        <package name="avahi-utils"/>
+        <package name="nss-mdns"/>
+        <package name="lldpd"/>
+        
+        <!-- File Systems -->
+        <package name="e2fsprogs"/>
+        <package name="xfsprogs"/>
+        <package name="btrfsprogs"/>
+        
+        <!-- System Management -->
+        <package name="systemd-sysvinit"/>
+        <package name="dbus-1"/>
+        <package name="ca-certificates"/>
+        <package name="ca-certificates-mozilla"/>
+        
+        <!-- QEMU Guest Agent -->
+        <package name="qemu-guest-agent"/>
+        
+        <!-- Cloud-init for automation -->
+        <package name="cloud-init"/>
+        
+        <!-- Hardware support -->
+        <package name="pciutils"/>
+        <package name="usbutils"/>
+        
+        <!-- Performance tools -->
+        <package name="htop"/>
+        <package name="iotop"/>
+        <package name="sysstat"/>
+        
+        <!-- Python for Ansible -->
+        <package name="python3"/>
+        <package name="python3-pip"/>
+    </packages>
+    
+    <packages type="bootstrap">
+        <package name="filesystem"/>
+        <package name="glibc-locale-base"/>
+        <package name="openSUSE-release"/>
+    </packages>
+</image>

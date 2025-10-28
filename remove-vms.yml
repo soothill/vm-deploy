@@ -1,0 +1,73 @@
+---
+- name: Remove OpenSUSE Virtual Machines from Proxmox
+  hosts: proxmox_host
+  gather_facts: false
+  
+  vars_files:
+    - vars/vm_config.yml
+  
+  vars:
+    confirm_deletion: false  # Set to true to actually delete VMs
+  
+  tasks:
+    - name: Safety check - require confirmation
+      ansible.builtin.fail:
+        msg: |
+          SAFETY CHECK: VM deletion not confirmed!
+          
+          To delete VMs, set confirm_deletion: true in this playbook or pass as extra var:
+          ansible-playbook -i inventory.ini remove-vms.yml -e "confirm_deletion=true"
+          
+          This will DELETE the following VMs:
+          {% for vm in vms %}
+          - {{ vm.name }} (VMID: {{ vm.vmid }})
+          {% endfor %}
+      when: not confirm_deletion
+
+    - name: Display VMs to be removed
+      ansible.builtin.debug:
+        msg: |
+          The following VMs will be PERMANENTLY DELETED:
+          {% for vm in vms %}
+          - {{ vm.name }} (VMID: {{ vm.vmid }})
+          {% endfor %}
+
+    - name: Stop VMs
+      community.general.proxmox_kvm:
+        api_user: "{{ proxmox_api_user }}"
+        api_password: "{{ proxmox_api_password }}"
+        api_host: "{{ proxmox_api_host }}"
+        node: "{{ proxmox_node }}"
+        vmid: "{{ item.vmid }}"
+        state: stopped
+        force: true
+      loop: "{{ vms }}"
+      ignore_errors: true
+
+    - name: Wait for VMs to stop
+      ansible.builtin.pause:
+        seconds: 5
+
+    - name: Delete VMs
+      community.general.proxmox_kvm:
+        api_user: "{{ proxmox_api_user }}"
+        api_password: "{{ proxmox_api_password }}"
+        api_host: "{{ proxmox_api_host }}"
+        node: "{{ proxmox_node }}"
+        vmid: "{{ item.vmid }}"
+        state: absent
+      loop: "{{ vms }}"
+
+    - name: Display removal summary
+      ansible.builtin.debug:
+        msg: |
+          ===============================================
+          VMs Removed Successfully
+          ===============================================
+          {% for vm in vms %}
+          - {{ vm.name }} (VMID: {{ vm.vmid }})
+          {% endfor %}
+          ===============================================
+          
+          Note: VM disk images have been removed.
+          Base image still exists at: {{ opensuse_image_path }}

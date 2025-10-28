@@ -1,0 +1,207 @@
+---
+# Example VM configurations for different storage scenarios
+
+#===========================================
+# SCENARIO 1: All storage on local-lvm
+#===========================================
+scenario_1_single_storage:
+  proxmox_api_user: "root@pam"
+  proxmox_api_password: "your_password"
+  proxmox_api_host: "proxmox.example.com"
+  proxmox_node: "pve"
+  
+  default_os_storage: "local-lvm"
+  default_data_storage: "local-lvm"
+  
+  vms:
+    - name: "opensuse-vm1"
+      vmid: 200
+      memory: 16384
+
+#===========================================
+# SCENARIO 2: NVMe for OS, HDD for data
+#===========================================
+scenario_2_tiered_storage:
+  default_os_storage: "nvme-pool"      # Fast NVMe SSD pool
+  default_data_storage: "hdd-pool"     # Large HDD pool
+  
+  vms:
+    - name: "opensuse-vm1"
+      vmid: 200
+      memory: 16384
+
+#===========================================
+# SCENARIO 3: ZFS storage pools
+#===========================================
+scenario_3_zfs_storage:
+  default_os_storage: "rpool/vms"           # ZFS pool for OS
+  default_data_storage: "tank/vm-data"      # ZFS pool for data
+  
+  vms:
+    - name: "opensuse-vm1"
+      vmid: 200
+      memory: 16384
+
+#===========================================
+# SCENARIO 4: Ceph distributed storage
+#===========================================
+scenario_4_ceph_storage:
+  default_os_storage: "ceph-ssd"       # Ceph SSD pool
+  default_data_storage: "ceph-hdd"     # Ceph HDD pool
+  
+  vms:
+    - name: "opensuse-vm1"
+      vmid: 200
+      memory: 16384
+
+#===========================================
+# SCENARIO 5: Per-VM custom storage
+#===========================================
+scenario_5_custom_per_vm:
+  default_os_storage: "local-lvm"
+  default_data_storage: "local-lvm"
+  
+  vms:
+    - name: "opensuse-vm1"
+      vmid: 200
+      memory: 16384
+      os_storage: "nvme-pool"          # Override: OS on NVMe
+      data_storage: "hdd-pool"         # Override: Data on HDD
+      
+    - name: "opensuse-vm2"
+      vmid: 201
+      memory: 32768
+      os_storage: "ssd-pool"           # Override: OS on SSD
+      data_storage: "ceph-hdd"         # Override: Data on Ceph
+
+#===========================================
+# SCENARIO 6: High-performance cluster
+#===========================================
+scenario_6_high_performance:
+  default_os_storage: "nvme-pool"
+  default_data_storage: "nvme-pool"    # All data on NVMe
+  data_disk_size: "2000G"              # 2TB per disk
+  
+  vm_default_memory: 65536             # 64GB RAM default
+  vm_default_cores: 16
+  
+  vms:
+    - name: "opensuse-compute1"
+      vmid: 200
+      memory: 131072                   # 128GB RAM
+      cores: 24
+      
+    - name: "opensuse-compute2"
+      vmid: 201
+      memory: 131072
+      cores: 24
+
+#===========================================
+# SCENARIO 7: Storage node configuration
+#===========================================
+scenario_7_storage_nodes:
+  default_os_storage: "local-lvm"
+  default_data_storage: "hdd-pool"
+  data_disk_size: "4000G"              # 4TB per disk (16TB total)
+  
+  vm_default_memory: 32768             # 32GB RAM
+  vm_default_cores: 8
+  
+  vms:
+    - name: "storage-node1"
+      vmid: 200
+      
+    - name: "storage-node2"
+      vmid: 201
+      
+    - name: "storage-node3"
+      vmid: 202
+      
+    - name: "storage-node4"
+      vmid: 203
+
+#===========================================
+# SCENARIO 8: Mixed workload cluster
+#===========================================
+scenario_8_mixed_workloads:
+  default_os_storage: "local-lvm"
+  default_data_storage: "local-lvm"
+  
+  vms:
+    # Database server - high memory, fast storage
+    - name: "database-server"
+      vmid: 200
+      memory: 65536                    # 64GB RAM
+      cores: 16
+      os_storage: "nvme-pool"
+      data_storage: "nvme-pool"
+      
+    # Application server - moderate resources
+    - name: "app-server"
+      vmid: 201
+      memory: 32768                    # 32GB RAM
+      cores: 8
+      os_storage: "ssd-pool"
+      data_storage: "ssd-pool"
+      
+    # Storage server - high disk, moderate memory
+    - name: "storage-server"
+      vmid: 202
+      memory: 16384                    # 16GB RAM
+      cores: 4
+      os_storage: "local-lvm"
+      data_storage: "hdd-pool"
+      
+    # Backup server - maximum storage
+    - name: "backup-server"
+      vmid: 203
+      memory: 16384
+      cores: 4
+      os_storage: "local-lvm"
+      data_storage: "backup-pool"
+
+#===========================================
+# SCENARIO 9: Development environment
+#===========================================
+scenario_9_development:
+  default_os_storage: "local-lvm"
+  default_data_storage: "local-lvm"
+  data_disk_size: "500G"               # Smaller disks for dev
+  
+  vm_default_memory: 8192              # 8GB RAM
+  vm_default_cores: 4
+  
+  vms:
+    - name: "dev-vm1"
+      vmid: 200
+    - name: "dev-vm2"
+      vmid: 201
+    - name: "dev-vm3"
+      vmid: 202
+    - name: "dev-vm4"
+      vmid: 203
+
+#===========================================
+# SCENARIO 10: NVMe-oF / RoCE storage cluster
+#===========================================
+scenario_10_nvmeof_cluster:
+  default_os_storage: "local-lvm"
+  default_data_storage: "nvme-of-pool"  # NVMe-oF storage
+  data_disk_size: "2000G"
+  
+  vm_default_memory: 32768
+  vm_default_cores: 8
+  
+  # Special network configuration for RDMA/RoCE
+  private_bridge: "vmbr1"              # Standard network
+  public_bridge: "vmbr2"               # RoCE/RDMA network
+  
+  vms:
+    - name: "nvmeof-node1"
+      vmid: 200
+    - name: "nvmeof-node2"
+      vmid: 201
+    - name: "nvmeof-node3"
+      vmid: 202
+    - name: "nvmeof-node4"
+      vmid: 203

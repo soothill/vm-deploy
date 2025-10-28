@@ -1,0 +1,134 @@
+---
+- name: Post-Deployment Configuration for OpenSUSE VMs
+  hosts: ceph_nodes
+  gather_facts: true
+  become: true
+  
+  vars_files:
+    - vars/vm_config.yml
+  
+  tasks:
+    - name: Wait for system to be fully ready
+      ansible.builtin.wait_for_connection:
+        timeout: 300
+        delay: 5
+
+    - name: Gather facts
+      ansible.builtin.setup:
+
+    - name: Update all packages to latest version
+      community.general.zypper:
+        name: '*'
+        state: latest
+        update_cache: true
+      register: zypper_update
+      async: 3600
+      poll: 10
+
+    - name: Display update results
+      ansible.builtin.debug:
+        msg: "System updated. {{ zypper_update.changed | default(false) | ternary('Updates were installed', 'System was already up to date') }}"
+
+    - name: Import GitHub SSH keys for root user
+      ansible.builtin.shell: |
+        /usr/local/bin/import-github-keys.sh {{ github_username }} root
+      when:
+        - github_username is defined
+        - github_username | length > 0
+      register: github_import
+      changed_when: "'Successfully imported' in github_import.stdout"
+      failed_when: false
+
+    - name: Display GitHub SSH key import status
+      ansible.builtin.debug:
+        msg: "{{ github_import.stdout_lines | default(['GitHub SSH key import skipped']) }}"
+      when: github_username is defined and github_username | length > 0
+
+    - name: Ensure avahi-daemon is running
+      ansible.builtin.systemd:
+        name: avahi-daemon
+        state: started
+        enabled: true
+
+    - name: Ensure lldpd is running
+      ansible.builtin.systemd:
+        name: lldpd
+        state: started
+        enabled: true
+
+    - name: Verify QEMU guest agent is running
+      ansible.builtin.systemd:
+        name: qemu-guest-agent
+        state: started
+        enabled: true
+
+    - name: Check LLDP neighbors
+      ansible.builtin.command: lldpcli show neighbors
+      register: lldp_neighbors
+      changed_when: false
+      failed_when: false
+
+    - name: Display LLDP neighbors
+      ansible.builtin.debug:
+        msg: "{{ lldp_neighbors.stdout_lines | default(['No LLDP neighbors found yet']) }}"
+
+    - name: Verify data disks are present and unformatted
+      ansible.builtin.shell: |
+        echo "=== Data Disks for Ceph OSD ==="
+        for disk in sdb sdc sdd sde; do
+          if [ -b "/dev/$disk" ]; then
+            echo "Disk /dev/$disk: $(lsblk -dn -o SIZE /dev/$disk) - $(blkid /dev/$disk || echo 'unformatted (ready for Ceph OSD)')"
+          fi
+        done
+        echo ""
+        echo "=== Mon Disk for Ceph MON ==="
+        if [ -b "/dev/sdf" ]; then
+          echo "Disk /dev/sdf: $(lsblk -dn -o SIZE /dev/sdf) - $(blkid /dev/sdf || echo 'unformatted (ready for Ceph MON)')"
+        fi
+      register: data_disks
+      changed_when: false
+
+    - name: Display data disk status
+      ansible.builtin.debug:
+        msg: "{{ data_disks.stdout_lines }}"
+
+    - name: Check avahi service discovery
+      ansible.builtin.command: avahi-browse -a -t -r
+      register: avahi_services
+      changed_when: false
+      failed_when: false
+      timeout: 5
+
+    - name: Display system summary
+      ansible.builtin.debug:
+        msg: |
+          ================================================
+          Post-Deployment Configuration Complete
+          ================================================
+          Hostname: {{ ansible_hostname }}
+          IP Addresses: {{ ansible_all_ipv4_addresses | join(', ') }}
+          OS: {{ ansible_distribution }} {{ ansible_distribution_version }}
+          Kernel: {{ ansible_kernel }}
+          
+          Services Status:
+          - avahi-daemon: {{ ansible_facts.services['avahi-daemon.service'].state | default('unknown') }}
+          - lldpd: {{ ansible_facts.services['lldpd.service'].state | default('unknown') }}
+          - qemu-guest-agent: {{ ansible_facts.services['qemu-guest-agent.service'].state | default('unknown') }}
+          
+          Data Disks (for Ceph OSD):
+          - /dev/sdb: {{ data_disk_size }}
+          - /dev/sdc: {{ data_disk_size }}
+          - /dev/sdd: {{ data_disk_size }}
+          - /dev/sde: {{ data_disk_size }}
+          
+          Mon Disk (for Ceph MON):
+          - /dev/sdf: {{ mon_disk_size | default('100G') }}
+          
+          {% if github_username is defined and github_username | length > 0 %}
+          GitHub SSH Keys: Imported for {{ github_username }}
+          {% endif %}
+          
+          System Updates: {{ zypper_update.changed | default(false) | ternary('Completed', 'Up to date') }}
+          
+          Ready for Ceph deployment!
+          ================================================

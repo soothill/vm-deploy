@@ -1,0 +1,157 @@
+---
+- name: Deploy OpenSUSE Virtual Machines on Proxmox
+  hosts: proxmox_host
+  gather_facts: false
+  
+  vars_files:
+    - vars/vm_config.yml
+  
+  tasks:
+    - name: Ensure required Python libraries are available
+      ansible.builtin.pip:
+        name:
+          - proxmoxer
+          - requests
+      delegate_to: localhost
+      run_once: true
+
+    - name: Check if custom OpenSUSE image exists
+      ansible.builtin.stat:
+        path: "{{ opensuse_image_path }}"
+      register: image_check
+
+    - name: Fail if image doesn't exist
+      ansible.builtin.fail:
+        msg: "OpenSUSE image not found at {{ opensuse_image_path }}. Please build it first using: cd kiwi && ./build-image.sh"
+      when: not image_check.stat.exists
+
+    - name: Create VMs with basic configuration
+      community.general.proxmox_kvm:
+        api_user: "{{ proxmox_api_user }}"
+        api_password: "{{ proxmox_api_password }}"
+        api_host: "{{ proxmox_api_host }}"
+        node: "{{ proxmox_node }}"
+        vmid: "{{ item.vmid }}"
+        name: "{{ item.name }}"
+        memory: "{{ item.memory | default(vm_default_memory) }}"
+        cores: "{{ item.cores | default(vm_default_cores) }}"
+        sockets: "{{ item.sockets | default(vm_default_sockets) }}"
+        cpu: "{{ vm_cpu_type }}"
+        ostype: l26
+        scsihw: virtio-scsi-single
+        boot: "order=scsi0"
+        agent: enabled=1
+        state: present
+      loop: "{{ vms }}"
+      register: vm_creation
+
+    - name: Import and configure OS disk
+      ansible.builtin.shell: |
+        # Import disk image
+        qm importdisk {{ item.vmid }} {{ opensuse_image_path }} {{ storage_pool }} --format qcow2
+        
+        # Attach OS disk as scsi0
+        qm set {{ item.vmid }} --scsi0 {{ storage_pool }}:vm-{{ item.vmid }}-disk-0,discard=on,size=50G,ssd=1,cache=writeback
+        
+        # Set boot disk
+        qm set {{ item.vmid }} --boot order=scsi0
+      loop: "{{ vms }}"
+      changed_when: true
+      args:
+        executable: /bin/bash
+
+    - name: Create and attach data disks (unformatted for Ceph OSD)
+      ansible.builtin.shell: |
+        for i in {1..4}; do
+          qm set {{ item.vmid }} --scsi$i {{ storage_pool }}:{{ data_disk_size }},format=qcow2,discard=on,cache=writeback
+        done
+      loop: "{{ vms }}"
+      changed_when: true
+      args:
+        executable: /bin/bash
+
+    - name: Create and attach Ceph mon disk (100GB)
+      ansible.builtin.shell: |
+        qm set {{ item.vmid }} --scsi5 {{ storage_pool }}:{{ mon_disk_size | default('100G') }},format=qcow2,discard=on,cache=writeback
+      loop: "{{ vms }}"
+      changed_when: true
+      args:
+        executable: /bin/bash
+
+    - name: Configure network interfaces
+      ansible.builtin.shell: |
+        # Private bridge network
+        qm set {{ item.vmid }} --net0 virtio,bridge={{ private_bridge }},firewall=0
+        
+        # Public/separate network
+        qm set {{ item.vmid }} --net1 virtio,bridge={{ public_bridge }},firewall=0
+      loop: "{{ vms }}"
+      changed_when: true
+      args:
+        executable: /bin/bash
+
+    - name: Configure VM performance settings
+      ansible.builtin.shell: |
+        qm set {{ item.vmid }} \
+          --numa 1 \
+          --balloon 0 \
+          --onboot {{ item.onboot | default(1) }}
+      loop: "{{ vms }}"
+      changed_when: true
+      args:
+        executable: /bin/bash
+
+    - name: Start VMs
+      community.general.proxmox_kvm:
+        api_user: "{{ proxmox_api_user }}"
+        api_password: "{{ proxmox_api_password }}"
+        api_host: "{{ proxmox_api_host }}"
+        node: "{{ proxmox_node }}"
+        vmid: "{{ item.vmid }}"
+        state: started
+      loop: "{{ vms }}"
+      when: auto_start | default(true)
+
+    - name: Wait for VMs to be reachable
+      ansible.builtin.wait_for:
+        host: "{{ item.ip }}"
+        port: 22
+        delay: 10
+        timeout: 300
+      loop: "{{ vms }}"
+      when: 
+        - auto_start | default(true)
+        - item.ip is defined
+      delegate_to: localhost
+
+    - name: Import GitHub SSH keys to VMs
+      ansible.builtin.shell: |
+        sshpass -p '{{ vm_root_password | default("opensuse") }}' ssh -o StrictHostKeyChecking=no root@{{ item.ip }} \
+          "/usr/local/bin/import-github-keys.sh {{ github_username }} root"
+      loop: "{{ vms }}"
+      when:
+        - github_username is defined
+        - github_username | length > 0
+        - item.ip is defined
+      ignore_errors: true
+      changed_when: true
+
+    - name: Display VM deployment summary
+      ansible.builtin.debug:
+        msg: |
+          ===============================================
+          VM Deployed: {{ item.name }}
+          ===============================================
+          VMID: {{ item.vmid }}
+          Memory: {{ item.memory | default(vm_default_memory) }} MB
+          Cores: {{ item.cores | default(vm_default_cores) }}
+          OS Disk: 50GB thin provisioned on {{ storage_pool }}
+          Data Disks: 4 x {{ data_disk_size }} on {{ storage_pool }} (UNFORMATTED - for Ceph OSD)
+          Mon Disk: {{ mon_disk_size | default('100G') }} on {{ storage_pool }} (UNFORMATTED - for Ceph MON)
+          Network 1: {{ private_bridge }} (Private)
+          Network 2: {{ public_bridge }} (Public)
+          {% if item.ip is defined %}IP: {{ item.ip }}{% endif %}
+          {% if github_username is defined and github_username | length > 0 %}GitHub SSH keys imported for: {{ github_username }}{% endif %}
+          Services: avahi-daemon (mDNS), lldpd (network discovery)
+          ===============================================
+      loop: "{{ vms }}"

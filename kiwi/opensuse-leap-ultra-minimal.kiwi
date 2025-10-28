@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<image schemaversion="7.5" name="opensuse-leap-ultra-minimal">
+    <description type="system">
+        <author>Ansible Automation</author>
+        <contact>admin@example.com</contact>
+        <specification>Ultra-minimal OpenSUSE Leap 15.6 for fastest VM deployment</specification>
+    </description>
+    <preferences>
+        <version>1.0.0</version>
+        <packagemanager>zypper</packagemanager>
+        <locale>en_US</locale>
+        <keytable>us</keytable>
+        <timezone>UTC</timezone>
+        <rpm-excludedocs>true</rpm-excludedocs>
+        <rpm-check-signatures>false</rpm-check-signatures>
+        <type 
+            image="oem" 
+            filesystem="ext4" 
+            kernelcmdline="console=ttyS0,115200 net.ifnames=0 biosdevname=0 quiet"
+            firmware="efi"
+            format="qcow2"
+            formatoptions="compression=on,lazy_refcounts=on,cluster_size=2M"
+            bootpartition="false"
+            devicepersistency="by-uuid"
+            btrfs_root_is_snapshot="false">
+            <oemconfig>
+                <oem-resize>true</oem-resize>
+                <oem-swap>false</oem-swap>
+            </oemconfig>
+            <bootloader name="grub2" console="serial" timeout="0"/>
+            <size unit="G">8</size>
+        </type>
+    </preferences>
+    
+    <users>
+        <!-- Default password: 'opensuse' - CHANGE THIS! -->
+        <user password="$6$rounds=100000$saltsaltsal$6MXq6gFCTvd7KZ8ypvCvZQ8p0PljCf6f0dLf2Hk8SQ8kQ1F3R2a1gNhEZq2xMfLiD8X9QyW7xZvH0KqV5pJ0G0" home="/root" name="root" groups="root"/>
+    </users>
+    
+    <repository type="rpm-md" alias="repo-oss" priority="1">
+        <source path="http://download.opensuse.org/distribution/leap/15.6/repo/oss/"/>
+    </repository>
+    
+    <packages type="image">
+        <!-- Absolute minimum packages for bootable system -->
+        <package name="patterns-base-minimal_base"/>
+        <package name="systemd"/>
+        <package name="dracut"/>
+        <package name="grub2"/>
+        <package name="grub2-x86_64-efi"/>
+        <package name="shim"/>
+        <package name="kernel-default"/>
+        
+        <!-- Networking -->
+        <package name="iproute2"/>
+        <package name="iputils"/>
+        <package name="dhcp-client"/>
+        <package name="wicked"/>
+        
+        <!-- Essential tools -->
+        <package name="openssh"/>
+        <package name="vim-small"/>
+        <package name="less"/>
+        
+        <!-- Hardware support -->
+        <package name="qemu-guest-agent"/>
+        
+        <!-- Python for Ansible -->
+        <package name="python3-base"/>
+    </packages>
+    
+    <packages type="bootstrap">
+        <package name="filesystem"/>
+        <package name="glibc-locale-base"/>
+        <package name="openSUSE-release"/>
+    </packages>
+</image>
