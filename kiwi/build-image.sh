@@ -28,17 +28,73 @@ echo "  Full path: ${OUTPUT_DIR}/${IMAGE_NAME}.qcow2"
 echo "========================================"
 
 # Check if running as root
-if [ "$EUID" -ne 0 ]; then 
+if [ "$EUID" -ne 0 ]; then
     echo "ERROR: This script must be run as root"
     echo "Please run: sudo $0"
     exit 1
 fi
 
+# Detect OS and set package manager
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    OS_ID="${ID}"
+else
+    echo "ERROR: Cannot detect OS type"
+    exit 1
+fi
+
+echo "Detected OS: ${OS_ID}"
+
 # Check if kiwi-ng is installed
 if ! command -v kiwi-ng &> /dev/null; then
     echo "KIWI not found. Installing..."
-    zypper install -y python3-kiwi
+
+    case "${OS_ID}" in
+        debian|ubuntu)
+            # Proxmox is Debian-based
+            echo "Installing python3-kiwi on Debian/Ubuntu/Proxmox..."
+            apt-get update
+            apt-get install -y python3-kiwi
+            ;;
+        opensuse*|sles)
+            # OpenSUSE or SLES
+            echo "Installing python3-kiwi on OpenSUSE/SLES..."
+            zypper install -y python3-kiwi
+            ;;
+        rhel|centos|fedora|rocky|alma)
+            # Red Hat based systems
+            echo "Installing python3-kiwi on RHEL/CentOS/Fedora..."
+            if command -v dnf &> /dev/null; then
+                dnf install -y python3-kiwi
+            else
+                yum install -y python3-kiwi
+            fi
+            ;;
+        *)
+            echo "ERROR: Unsupported OS: ${OS_ID}"
+            echo "Please install python3-kiwi manually:"
+            echo "  - Debian/Ubuntu/Proxmox: apt-get install python3-kiwi"
+            echo "  - OpenSUSE: zypper install python3-kiwi"
+            echo "  - RHEL/CentOS: dnf install python3-kiwi"
+            echo "  - Or via pip: pip3 install kiwi"
+            exit 1
+            ;;
+    esac
+
+    # Verify installation
+    if ! command -v kiwi-ng &> /dev/null; then
+        echo "ERROR: KIWI installation failed"
+        echo "Trying pip installation as fallback..."
+        if command -v pip3 &> /dev/null; then
+            pip3 install kiwi
+        else
+            echo "ERROR: pip3 not found. Please install python3-kiwi manually."
+            exit 1
+        fi
+    fi
 fi
+
+echo "KIWI version: $(kiwi-ng --version 2>&1 | head -n1)"
 
 # Create build directory
 echo "Creating build directory..."

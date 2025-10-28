@@ -66,11 +66,14 @@ cd /root/kiwi
 ```
 
 The build process will:
-- Install KIWI if needed
+- Detect OS (Proxmox/Debian, OpenSUSE, RHEL, etc.)
+- Install KIWI if needed (using apt-get on Proxmox)
 - Build minimal OpenSUSE Leap 15.6 image
 - Run zypper update to install all latest packages
 - Install and configure avahi + lldpd
 - Copy image to `/var/lib/vz/template/iso/opensuse-leap-custom.qcow2`
+
+**Note:** The script automatically detects Proxmox (Debian-based) and uses `apt-get` to install KIWI. See [PROXMOX_KIWI_SETUP.md](PROXMOX_KIWI_SETUP.md) for details.
 
 ### Step 3: Deploy VMs (2-5 minutes)
 
