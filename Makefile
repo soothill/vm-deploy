@@ -1,6 +1,6 @@
 .PHONY: help all deploy configure remove clean build-image build-image-remote check-image \
         deploy-full status update test-connection generate-config generate-inventory \
-        deploy-only configure-only remove-confirm list-vms vm-status \
+        deploy-only configure-only remove-confirm list-vms vm-status cleanup-vms \
         deploy-build-vm build-vm-status remove-build-vm detect-build-vm-ip ssh-build-vm update-env
 
 # Load environment variables from .env if it exists
@@ -70,13 +70,14 @@ help: ## Display this help message
 	@echo "  $(GREEN)VERBOSE=1/2/3$(NC)        Add verbosity (-v/-vv/-vvv)"
 	@echo "  $(GREEN)CHECK=1$(NC)              Run in check mode (dry-run)"
 	@echo "  $(GREEN)DIFF=1$(NC)               Show differences"
-	@echo "  $(GREEN)CONFIRM_DELETE=true$(NC)  Confirm VM deletion (required for remove)"
+	@echo "  $(GREEN)CONFIRM_DELETE=true$(NC)  Confirm VM deletion (required for remove/cleanup)"
 	@echo ""
 	@echo "$(BLUE)Examples:$(NC)"
-	@echo "  make deploy              # Deploy VMs"
-	@echo "  make deploy VERBOSE=2    # Deploy with verbose output"
-	@echo "  make configure CHECK=1   # Dry-run configuration"
-	@echo "  make remove CONFIRM_DELETE=true  # Remove VMs (requires confirmation)"
+	@echo "  make deploy                          # Deploy VMs"
+	@echo "  make deploy VERBOSE=2                # Deploy with verbose output"
+	@echo "  make configure CHECK=1               # Dry-run configuration"
+	@echo "  make remove CONFIRM_DELETE=true      # Remove VMs via Ansible"
+	@echo "  make cleanup-vms CONFIRM_DELETE=true # Quick cleanup via SSH (faster)"
 	@echo ""
 
 ##@ Main Operations
@@ -102,6 +103,35 @@ ifeq ($(CONFIRM_DELETE),true)
 else
 	@echo "$(RED)ERROR: VM deletion not confirmed!$(NC)"
 	@echo "To delete VMs, run: make remove CONFIRM_DELETE=true"
+	@exit 1
+endif
+
+cleanup-vms: check-env ## Quick cleanup - destroy all VMs and disks (requires CONFIRM_DELETE=true)
+ifeq ($(CONFIRM_DELETE),true)
+	@echo "$(RED)Destroying VMs and cleaning up disks...$(NC)"
+	@echo "$(YELLOW)This will forcefully destroy all VMs defined in your configuration$(NC)"
+	@echo ""
+	@. .env && \
+	for vmid in $$(seq 1 $${NUM_VMS:-4}); do \
+		eval "VMID=\$$VM$${vmid}_VMID"; \
+		if [ -z "$$VMID" ]; then \
+			VMID=$$((199 + vmid)); \
+		fi; \
+		echo "  Destroying VM $$VMID..."; \
+		ssh $(PROXMOX_SSH_USER)@$(PROXMOX_API_HOST) "qm stop $$VMID 2>/dev/null; qm destroy $$VMID 2>/dev/null || echo '  VM $$VMID not found (already removed)'"; \
+	done
+	@echo ""
+	@echo "$(GREEN)Cleanup completed!$(NC)"
+	@echo "$(YELLOW)Note: ZFS snapshots may still exist. To fully clean ZFS:$(NC)"
+	@echo "  ssh $(PROXMOX_SSH_USER)@$(PROXMOX_API_HOST) 'zfs list -t all | grep vm-'"
+else
+	@echo "$(RED)ERROR: VM deletion not confirmed!$(NC)"
+	@echo ""
+	@echo "This command will DESTROY VMs and all their disks without backup."
+	@echo "To proceed, run: $(GREEN)make cleanup-vms CONFIRM_DELETE=true$(NC)"
+	@echo ""
+	@echo "To see what VMs would be deleted:"
+	@echo "  make list-vms"
 	@exit 1
 endif
 
