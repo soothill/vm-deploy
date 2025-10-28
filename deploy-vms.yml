@@ -17,16 +17,17 @@
       changed_when: false
 
     - name: Install required Python libraries (if missing)
-      ansible.builtin.pip:
-        name:
-          - proxmoxer
-          - requests
-        extra_args: --user
+      ansible.builtin.shell: |
+        pip3 install --user --break-system-packages proxmoxer requests 2>/dev/null || \
+        pip3 install --user proxmoxer requests 2>/dev/null || \
+        pip install --user proxmoxer requests 2>/dev/null || \
+        python3 -m pip install --user proxmoxer requests
       delegate_to: localhost
       run_once: true
       when: pip_check.rc != 0
       ignore_errors: true
       register: pip_install
+      changed_when: "'Successfully installed' in pip_install.stdout"
 
     - name: Show installation instructions if pip install failed
       ansible.builtin.fail:
