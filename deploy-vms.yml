@@ -18,25 +18,28 @@
         msg: "OpenSUSE image not found at {{ opensuse_image_path }}. Please build it first using: cd kiwi && ./build-image.sh"
       when: not image_check.stat.exists
 
-    - name: Create VMs with basic configuration
-      community.general.proxmox_kvm:
-        api_user: "{{ proxmox_api_user }}"
-        api_password: "{{ proxmox_api_password }}"
-        api_host: "{{ proxmox_api_host }}"
-        node: "{{ proxmox_node }}"
-        vmid: "{{ item.vmid }}"
-        name: "{{ item.name }}"
-        memory: "{{ item.memory | default(vm_default_memory) }}"
-        cores: "{{ item.cores | default(vm_default_cores) }}"
-        sockets: "{{ item.sockets | default(vm_default_sockets) }}"
-        cpu: "{{ vm_cpu_type }}"
-        ostype: l26
-        scsihw: virtio-scsi-single
-        boot: "order=scsi0"
-        agent: enabled=1
-        state: present
+    - name: Check if VMs already exist
+      ansible.builtin.shell: |
+        qm status {{ item.vmid }} >/dev/null 2>&1 && echo "exists" || echo "absent"
       loop: "{{ vms }}"
-      register: vm_creation
+      register: vm_exists
+      changed_when: false
+      failed_when: false
+
+    - name: Create VMs with basic configuration using qm
+      ansible.builtin.shell: |
+        qm create {{ item.item.vmid }} \
+          --name {{ item.item.name }} \
+          --memory {{ item.item.memory | default(vm_default_memory) }} \
+          --cores {{ item.item.cores | default(vm_default_cores) }} \
+          --sockets {{ item.item.sockets | default(vm_default_sockets) }} \
+          --cpu {{ vm_cpu_type }} \
+          --ostype l26 \
+          --scsihw virtio-scsi-single \
+          --agent enabled=1
+      loop: "{{ vm_exists.results }}"
+      when: item.stdout == "absent"
+      changed_when: true
 
     - name: Import and configure OS disk
       ansible.builtin.shell: |
@@ -95,15 +98,11 @@
         executable: /bin/bash
 
     - name: Start VMs
-      community.general.proxmox_kvm:
-        api_user: "{{ proxmox_api_user }}"
-        api_password: "{{ proxmox_api_password }}"
-        api_host: "{{ proxmox_api_host }}"
-        node: "{{ proxmox_node }}"
-        vmid: "{{ item.vmid }}"
-        state: started
+      ansible.builtin.shell: |
+        qm start {{ item.vmid }}
       loop: "{{ vms }}"
       when: auto_start | default(true)
+      changed_when: true
 
     - name: Wait for VMs to be reachable
       ansible.builtin.wait_for:
