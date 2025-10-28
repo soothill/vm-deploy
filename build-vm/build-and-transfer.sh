@@ -84,6 +84,31 @@ IMAGE_NAME="${IMAGE_NAME%.qcow2}"
 
 FINAL_IMAGE_PATH="${OUTPUT_DIR}/${IMAGE_NAME}.qcow2"
 
+# Validate that OPENSUSE_IMAGE_PATH looks correct (not just a directory)
+if [ -n "${OPENSUSE_IMAGE_PATH}" ] && [[ "${OPENSUSE_IMAGE_PATH}" == */ ]]; then
+    echo "=========================================="
+    echo "ERROR: Invalid OPENSUSE_IMAGE_PATH"
+    echo "=========================================="
+    echo ""
+    echo "OPENSUSE_IMAGE_PATH is set to a directory:"
+    echo "  ${OPENSUSE_IMAGE_PATH}"
+    echo ""
+    echo "It must be the FULL PATH including the .qcow2 filename, not just a directory."
+    echo ""
+    echo "Examples of CORRECT paths:"
+    echo "  /var/lib/vz/template/iso/opensuse-leap-custom.qcow2"
+    echo "  /wdred/iso/template/opensuse-leap-custom.qcow2"
+    echo "  /mnt/storage/images/my-image.qcow2"
+    echo ""
+    echo "Examples of WRONG paths (ending with /):"
+    echo "  /var/lib/vz/template/iso/"
+    echo "  /wdred/iso/template/"
+    echo ""
+    echo "Please update your .env file with the correct full path."
+    echo "=========================================="
+    exit 1
+fi
+
 echo "=========================================="
 echo "Building OpenSUSE Image on Build VM"
 echo "=========================================="
