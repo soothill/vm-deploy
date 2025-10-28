@@ -71,8 +71,15 @@ Configure these key settings in [.env](.env.example):
 - **Image storage path** (customize where the image is stored)
 - Storage pool and disk sizes
 - Network bridges
-- VM resource defaults
+- VM resource defaults (memory, cores, VM IDs)
 - GitHub username (optional)
+
+**IMPORTANT:** After editing `.env`, generate the Ansible configuration:
+```bash
+make generate-config  # Creates vars/vm_config.yml from .env
+```
+
+The `vars/vm_config.yml` file is auto-generated from your `.env` - don't edit it directly!
 
 **Need custom image storage?** See [IMAGE_CONFIGURATION.md](IMAGE_CONFIGURATION.md) for detailed configuration options.
 

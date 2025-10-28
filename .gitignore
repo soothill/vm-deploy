@@ -1,6 +1,9 @@
 # Environment configuration
 .env
 
+# Generated configuration files (created from .env)
+vars/vm_config.yml
+
 # Ansible
 *.retry
 
