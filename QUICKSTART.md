@@ -1,8 +1,25 @@
 # Quick Start Guide
 
-## Complete Workflow (Simplified)
+## Super Simple: All-in-One Command
 
-### First Time Setup (10 minutes)
+```bash
+# 1. Setup configuration
+make init && make edit-env
+
+# 2. Build image + deploy VMs (one command!)
+make fresh-start CONFIRM_DELETE=true
+
+# 3. Configure VMs (optional)
+make configure
+```
+
+**That's it! One command does everything: rebuilds image with LLDP/Avahi, removes old VMs, deploys new VMs.**
+
+---
+
+## Complete Workflow (Step by Step)
+
+### First Time Setup (2 minutes)
 
 ```bash
 # 1. Clone the repository
@@ -18,22 +35,28 @@ make edit-env
 # That's it for setup!
 ```
 
-### One-Time: Build OpenSUSE Image (20-45 minutes)
+### Option A: All-in-One (Recommended for fresh start)
 
 ```bash
-# Deploy dedicated build VM
-make deploy-build-vm
-
-# Build custom OpenSUSE image with cloud-init
-make build-image-remote
-
-# Done! Image is now on Proxmox
+# Build image + deploy VMs in one command (20-50 minutes total)
+make fresh-start CONFIRM_DELETE=true
 ```
 
-### Deploy VMs (2-5 minutes)
+**What it does:**
+1. Removes old build VM (if exists)
+2. Deploys new build VM
+3. Builds OpenSUSE image with LLDP/Avahi
+4. Removes old VMs (if exist)
+5. Deploys new VMs
+
+### Option B: Step by Step
 
 ```bash
-# Deploy all VMs - that's it!
+# Build image (20-45 minutes)
+make deploy-build-vm
+make build-image-remote
+
+# Deploy VMs (2-5 minutes)
 make deploy
 ```
 

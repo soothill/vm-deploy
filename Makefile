@@ -1,7 +1,8 @@
 .PHONY: help deploy configure remove clean build-image build-image-remote check-image \
         status test-connection generate-config generate-inventory \
         list-vms vm-status cleanup-vms generate-config-silent generate-inventory-silent \
-        deploy-build-vm build-vm-status remove-build-vm detect-build-vm-ip ssh-build-vm update-env
+        deploy-build-vm build-vm-status remove-build-vm detect-build-vm-ip ssh-build-vm update-env \
+        fresh-start rebuild-all
 
 # Load environment variables from .env if it exists
 -include .env
@@ -67,11 +68,14 @@ help: ## Display this help message
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make $(GREEN)<target>$(NC)\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  $(GREEN)%-20s$(NC) %s\n", $$1, $$2 } /^##@/ { printf "\n$(BLUE)%s$(NC)\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 	@echo ""
 	@echo "$(BLUE)Quick Start:$(NC)"
-	@echo "  1. make init           # Create .env file"
-	@echo "  2. make edit-env       # Edit configuration"
-	@echo "  3. make deploy-build-vm && make build-image-remote  # Build image (one-time)"
-	@echo "  4. make deploy         # Deploy VMs"
-	@echo "  5. make configure      # Configure VMs"
+	@echo "  1. make init                             # Create .env file"
+	@echo "  2. make edit-env                         # Edit configuration"
+	@echo "  3. make fresh-start CONFIRM_DELETE=true  # Build image + deploy VMs (all-in-one!)"
+	@echo "  4. make configure                        # Configure VMs"
+	@echo ""
+	@echo "$(BLUE)Or step by step:$(NC)"
+	@echo "  make deploy-build-vm && make build-image-remote  # Build image"
+	@echo "  make deploy                                      # Deploy VMs"
 	@echo ""
 	@echo "$(BLUE)Note:$(NC) All config is controlled by .env - deploy auto-generates Ansible configs"
 	@echo ""
@@ -127,6 +131,56 @@ else
 	@echo "  make list-vms"
 	@exit 1
 endif
+
+fresh-start: check-env ## Complete fresh deployment: rebuild image + redeploy VMs (requires CONFIRM_DELETE=true)
+ifeq ($(CONFIRM_DELETE),true)
+	@echo "$(BLUE)========================================$(NC)"
+	@echo "$(BLUE)Starting Fresh Deployment$(NC)"
+	@echo "$(BLUE)========================================$(NC)"
+	@echo ""
+	@echo "$(YELLOW)This will:$(NC)"
+	@echo "  1. Remove build VM"
+	@echo "  2. Deploy new build VM"
+	@echo "  3. Build OpenSUSE image with LLDP/Avahi"
+	@echo "  4. Remove existing VMs"
+	@echo "  5. Deploy new VMs"
+	@echo ""
+	@echo "$(YELLOW)Step 1/5: Removing build VM...$(NC)"
+	@$(MAKE) remove-build-vm || echo "Build VM not found, continuing..."
+	@echo ""
+	@echo "$(YELLOW)Step 2/5: Deploying build VM...$(NC)"
+	@$(MAKE) deploy-build-vm
+	@echo ""
+	@echo "$(YELLOW)Step 3/5: Building OpenSUSE image (this takes 20-45 minutes)...$(NC)"
+	@$(MAKE) build-image-remote
+	@echo ""
+	@echo "$(YELLOW)Step 4/5: Removing existing VMs...$(NC)"
+	@$(MAKE) cleanup-vms CONFIRM_DELETE=true || echo "No VMs to remove, continuing..."
+	@echo ""
+	@echo "$(YELLOW)Step 5/5: Deploying VMs...$(NC)"
+	@$(MAKE) deploy
+	@echo ""
+	@echo "$(GREEN)========================================$(NC)"
+	@echo "$(GREEN)Fresh Deployment Completed!$(NC)"
+	@echo "$(GREEN)========================================$(NC)"
+	@echo ""
+	@echo "$(BLUE)Next steps:$(NC)"
+	@echo "  1. Update inventory-vms.ini with actual VM IPs: make edit-vm-inventory"
+	@echo "  2. Configure VMs: make configure"
+else
+	@echo "$(RED)ERROR: Fresh deployment not confirmed!$(NC)"
+	@echo ""
+	@echo "$(YELLOW)This will:$(NC)"
+	@echo "  - Rebuild the OpenSUSE image (20-45 minutes)"
+	@echo "  - Remove and recreate ALL VMs"
+	@echo "  - All VM data will be LOST"
+	@echo ""
+	@echo "To proceed, run: $(GREEN)make fresh-start CONFIRM_DELETE=true$(NC)"
+	@exit 1
+endif
+
+rebuild-all: check-env ## Rebuild image and redeploy VMs (requires CONFIRM_DELETE=true) - alias for fresh-start
+	@$(MAKE) fresh-start CONFIRM_DELETE=$(CONFIRM_DELETE)
 
 ##@ Image Management
 
