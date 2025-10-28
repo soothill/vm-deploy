@@ -58,11 +58,55 @@
       changed_when: false
       failed_when: false
 
+    - name: Display warning for existing VMs
+      ansible.builtin.debug:
+        msg: |
+          ⚠️  WARNING: VM {{ item.item.vmid }} ({{ item.item.name }}) already exists!
+
+          This VM will be SKIPPED during deployment.
+
+          If you want to recreate this VM:
+          1. Run: make cleanup-vms CONFIRM_DELETE=true
+          2. Or manually: ssh root@{{ proxmox_api_host }} "qm destroy {{ item.item.vmid }}"
+          3. Then run: make deploy
+      loop: "{{ vm_exists.results }}"
+      when: item.stdout == "exists_vm"
+
     - name: Fail if VM ID is already used by a Container
       ansible.builtin.fail:
-        msg: "Cannot create VM {{ item.item.vmid }} ({{ item.item.name }}) - ID is already used by an LXC Container (CT {{ item.item.vmid }}). Please either remove the container or use a different VM ID in vars/vm_config.yml"
+        msg: |
+          ❌ ERROR: Cannot create VM {{ item.item.vmid }} ({{ item.item.name }})
+
+          This ID is already used by an LXC Container (CT {{ item.item.vmid }}).
+
+          To fix this, either:
+          1. Remove the container: ssh root@{{ proxmox_api_host }} "pct destroy {{ item.item.vmid }}"
+          2. Or change VM IDs in your .env file:
+             - Edit .env and set VM{{ loop.index }}_VMID to a different ID
+             - Run: make deploy
       loop: "{{ vm_exists.results }}"
       when: item.stdout == "exists_ct"
+
+    - name: Count VMs that already exist
+      ansible.builtin.set_fact:
+        existing_vms_count: "{{ vm_exists.results | selectattr('stdout', 'equalto', 'exists_vm') | list | length }}"
+
+    - name: Pause if VMs already exist (allow user to cancel)
+      ansible.builtin.pause:
+        prompt: |
+
+          ⚠️  {{ existing_vms_count }} VM(s) already exist and will be SKIPPED.
+
+          Existing VMs will NOT be modified or recreated.
+          Only NEW VMs will be created.
+
+          To cleanup and recreate all VMs:
+            Press Ctrl+C, then run: make cleanup-vms CONFIRM_DELETE=true
+
+          To continue with partial deployment:
+            Press ENTER to continue
+        seconds: 15
+      when: existing_vms_count | int > 0
 
     - name: Create VMs with basic configuration using qm
       ansible.builtin.shell: |
