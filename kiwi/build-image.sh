@@ -104,6 +104,26 @@ mkdir -p "${BUILD_DIR}"
 # Make config.sh executable
 chmod +x "${SCRIPT_DIR}/config.sh"
 
+# Configure localization settings (with UK defaults)
+KIWI_KEYTABLE="${KIWI_KEYTABLE:-uk}"
+KIWI_LOCALE="${KIWI_LOCALE:-en_GB}"
+KIWI_TIMEZONE="${KIWI_TIMEZONE:-Europe/London}"
+
+echo "Localization settings:"
+echo "  Keytable: ${KIWI_KEYTABLE}"
+echo "  Locale: ${KIWI_LOCALE}"
+echo "  Timezone: ${KIWI_TIMEZONE}"
+
+# Update config.xml with localization settings
+if [ -f "${SCRIPT_DIR}/config.xml" ]; then
+    # Create a temporary config with customized locale settings
+    sed -e "s|<locale>.*</locale>|<locale>${KIWI_LOCALE}</locale>|" \
+        -e "s|<keytable>.*</keytable>|<keytable>${KIWI_KEYTABLE}</keytable>|" \
+        -e "s|<timezone>.*</timezone>|<timezone>${KIWI_TIMEZONE}</timezone>|" \
+        "${SCRIPT_DIR}/config.xml" > "${SCRIPT_DIR}/config.xml.tmp"
+    mv "${SCRIPT_DIR}/config.xml.tmp" "${SCRIPT_DIR}/config.xml"
+fi
+
 # Build the image
 echo "Building image with KIWI..."
 echo "This may take 10-30 minutes depending on your internet connection..."

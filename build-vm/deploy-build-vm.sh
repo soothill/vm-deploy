@@ -389,7 +389,9 @@ zypper install -y \
     parted \
     git \
     rsync \
-    openssh
+    openssh \
+    htop \
+    sysstat
 
 echo "Creating build directory..."
 mkdir -p /root/kiwi-builds

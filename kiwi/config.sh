@@ -295,6 +295,14 @@ cloud_final_modules:
 EOF
 
 #======================================
+# Locale Configuration
+#--------------------------------------
+# Ensure UK locale is generated (en_GB is the default in config.xml)
+# This generates additional locales that might be useful
+echo "Generating locales..."
+localectl set-locale LANG=en_GB.UTF-8 || true
+
+#======================================
 # Sudoers Configuration
 #--------------------------------------
 echo "%wheel ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers.d/wheel
