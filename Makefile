@@ -195,8 +195,8 @@ detect-build-vm-ip: check-env ## Auto-detect and save build VM IP address
 		fi; \
 		echo "Trying multiple detection methods..."; \
 		VM_MAC=$$(ssh $(PROXMOX_SSH_USER)@$(PROXMOX_API_HOST) "qm config $$BUILD_VM_ID | grep -o 'net0:.*' | grep -o '[0-9A-Fa-f:]\{17\}' | head -1"); \
-		BUILD_VM_IP=$$(ssh $(PROXMOX_SSH_USER)@$(PROXMOX_API_HOST) "qm guest cmd $$BUILD_VM_ID network-get-interfaces 2>/dev/null | grep -o '\"ip-address\":\"[0-9.]*\"' | grep -o '[0-9.]*' | grep -v 127.0.0.1 | head -1" || echo ""); \
-		if [ -n "$$BUILD_VM_IP" ]; then \
+		BUILD_VM_IP=$$(ssh $(PROXMOX_SSH_USER)@$(PROXMOX_API_HOST) "qm guest cmd $$BUILD_VM_ID network-get-interfaces 2>/dev/null | grep -o '\"ip-address\":\"[0-9][0-9.]*\"' | grep -o '[0-9][0-9.]*' | grep -v '127.0.0.1' | grep -v ':' | head -1" || echo ""); \
+		if [ -n "$$BUILD_VM_IP" ] && [ "$$BUILD_VM_IP" != "." ]; then \
 			echo "$(GREEN)✓ Detected IP via guest agent: $$BUILD_VM_IP$(NC)"; \
 		else \
 			BUILD_VM_IP=$$(ssh $(PROXMOX_SSH_USER)@$(PROXMOX_API_HOST) "ip neigh show | grep -i '$$VM_MAC' | grep -o '[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}' | head -1" || echo ""); \
