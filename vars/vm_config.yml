@@ -6,7 +6,8 @@ proxmox_api_host: "proxmox.example.com"
 proxmox_node: "pve"
 
 # OpenSUSE Image Configuration
-opensuse_image_path: "/var/lib/vz/template/iso/opensuse-leap-custom.qcow2"
+# NOTE: Run 'make generate-config' to update this from your .env file
+opensuse_image_path: "/wdred/iso/template/iso/opensuse-leap-custom.qcow2"
 
 # GitHub SSH Key Configuration
 # Set your GitHub username to automatically import SSH keys during deployment
