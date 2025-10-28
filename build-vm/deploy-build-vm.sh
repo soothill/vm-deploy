@@ -52,40 +52,68 @@ fi
 echo "=========================================="
 echo ""
 
-# Check if VM already exists
-echo "Checking if VM ${BUILD_VM_ID} already exists..."
+# Check if VM or Container ID already exists
+echo "Checking if ID ${BUILD_VM_ID} is available..."
+
+# Check for VM
+IS_VM=""
+IS_CT=""
 if ssh ${PROXMOX_USER}@${PROXMOX_HOST} "qm status ${BUILD_VM_ID} >/dev/null 2>&1"; then
+    IS_VM="yes"
+fi
+
+# Check for Container (LXC)
+if ssh ${PROXMOX_USER}@${PROXMOX_HOST} "pct status ${BUILD_VM_ID} >/dev/null 2>&1"; then
+    IS_CT="yes"
+fi
+
+if [ -n "${IS_VM}" ] || [ -n "${IS_CT}" ]; then
     echo ""
     echo "=========================================="
-    echo "ERROR: VM ${BUILD_VM_ID} Already Exists!"
+    if [ -n "${IS_VM}" ]; then
+        echo "ERROR: VM ${BUILD_VM_ID} Already Exists!"
+        RESOURCE_TYPE="VM"
+        STATUS_CMD="qm status ${BUILD_VM_ID}"
+        CONFIG_CMD="qm config ${BUILD_VM_ID}"
+        STOP_CMD="qm stop ${BUILD_VM_ID}"
+        DESTROY_CMD="qm destroy ${BUILD_VM_ID}"
+    else
+        echo "ERROR: Container (CT) ${BUILD_VM_ID} Already Exists!"
+        RESOURCE_TYPE="Container"
+        STATUS_CMD="pct status ${BUILD_VM_ID}"
+        CONFIG_CMD="pct config ${BUILD_VM_ID}"
+        STOP_CMD="pct stop ${BUILD_VM_ID}"
+        DESTROY_CMD="pct destroy ${BUILD_VM_ID}"
+    fi
     echo "=========================================="
 
-    # Get VM details
-    VM_STATUS=$(ssh ${PROXMOX_USER}@${PROXMOX_HOST} "qm status ${BUILD_VM_ID} | awk '{print \$2}'")
-    VM_NAME=$(ssh ${PROXMOX_USER}@${PROXMOX_HOST} "qm config ${BUILD_VM_ID} | grep '^name:' | awk '{print \$2}'")
+    # Get resource details
+    RESOURCE_STATUS=$(ssh ${PROXMOX_USER}@${PROXMOX_HOST} "${STATUS_CMD} | awk '{print \$2}'")
+    RESOURCE_NAME=$(ssh ${PROXMOX_USER}@${PROXMOX_HOST} "${CONFIG_CMD} | grep '^name:' | awk '{print \$2}' || echo 'N/A'")
+    RESOURCE_NAME=${RESOURCE_NAME:-"(unnamed)"}
 
-    echo "VM Details:"
-    echo "  VM ID: ${BUILD_VM_ID}"
-    echo "  VM Name: ${VM_NAME}"
-    echo "  Status: ${VM_STATUS}"
+    echo "${RESOURCE_TYPE} Details:"
+    echo "  ID: ${BUILD_VM_ID}"
+    echo "  Type: ${RESOURCE_TYPE}"
+    echo "  Name: ${RESOURCE_NAME}"
+    echo "  Status: ${RESOURCE_STATUS}"
     echo ""
     echo "Options:"
-    echo "  1. Destroy and recreate this VM"
-    echo "  2. Use a different VM ID"
-    echo "  3. Keep existing VM (if it's already configured)"
+    echo "  1. Destroy and recreate (converts to VM)"
+    echo "  2. Use a different BUILD_VM_ID"
     echo ""
     echo "=========================================="
     echo ""
 
-    read -p "Do you want to destroy VM ${BUILD_VM_ID} and recreate it? (yes/no): " -r
+    read -p "Do you want to destroy ${RESOURCE_TYPE} ${BUILD_VM_ID} and create a VM? (yes/no): " -r
     if [[ $REPLY =~ ^[Yy][Ee][Ss]$ ]]; then
         echo ""
-        echo "Stopping and removing existing VM ${BUILD_VM_ID} (${VM_NAME})..."
-        ssh ${PROXMOX_USER}@${PROXMOX_HOST} "qm stop ${BUILD_VM_ID} || true"
-        echo "Waiting for VM to stop..."
+        echo "Stopping and removing existing ${RESOURCE_TYPE} ${BUILD_VM_ID} (${RESOURCE_NAME})..."
+        ssh ${PROXMOX_USER}@${PROXMOX_HOST} "${STOP_CMD} || true"
+        echo "Waiting for ${RESOURCE_TYPE} to stop..."
         sleep 5
-        ssh ${PROXMOX_USER}@${PROXMOX_HOST} "qm destroy ${BUILD_VM_ID}"
-        echo "VM ${BUILD_VM_ID} destroyed."
+        ssh ${PROXMOX_USER}@${PROXMOX_HOST} "${DESTROY_CMD}"
+        echo "${RESOURCE_TYPE} ${BUILD_VM_ID} destroyed."
         echo ""
     else
         echo ""
@@ -94,14 +122,12 @@ if ssh ${PROXMOX_USER}@${PROXMOX_HOST} "qm status ${BUILD_VM_ID} >/dev/null 2>&1
         echo "=========================================="
         echo ""
         echo "To use a different VM ID, edit your .env file:"
-        echo "  export BUILD_VM_ID=\"101\"  # Or any available VM ID"
+        echo "  export BUILD_VM_ID=\"101\"  # Or any available ID"
         echo ""
-        echo "To check available VM IDs:"
-        echo "  ssh ${PROXMOX_USER}@${PROXMOX_HOST} 'qm list'"
-        echo ""
-        echo "If VM ${BUILD_VM_ID} is already your build VM:"
-        echo "  You can use it directly: make build-image-remote"
-        echo "  Or check its status: make build-vm-status"
+        echo "To check available IDs:"
+        echo "  ssh ${PROXMOX_USER}@${PROXMOX_HOST} 'qm list'        # VMs"
+        echo "  ssh ${PROXMOX_USER}@${PROXMOX_HOST} 'pct list'       # Containers"
+        echo "  ssh ${PROXMOX_USER}@${PROXMOX_HOST} 'pvesh get /cluster/resources --type vm'"
         echo ""
         echo "=========================================="
         exit 1

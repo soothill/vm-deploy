@@ -196,30 +196,46 @@ scp root@<BUILD_VM_IP>:/root/kiwi-builds/output/*.qcow2 \
 
 **Solutions:**
 
-#### VM ID Already Exists
+#### VM/Container ID Already Exists
 
-The deployment script automatically checks if the VM ID is already in use:
+The deployment script automatically checks if the ID is already in use by a VM or Container:
 
 ```bash
-# When deploying, if VM ID exists, you'll see:
+# When deploying, if ID exists as a VM, you'll see:
 # ==========================================
 # ERROR: VM 100 Already Exists!
 # ==========================================
 # VM Details:
-#   VM ID: 100
-#   VM Name: existing-vm
+#   ID: 100
+#   Type: VM
+#   Name: existing-vm
 #   Status: running
 #
 # Options:
-#   1. Destroy and recreate this VM
-#   2. Use a different VM ID
-#   3. Keep existing VM (if it's already configured)
+#   1. Destroy and recreate (converts to VM)
+#   2. Use a different BUILD_VM_ID
+
+# Or if ID exists as a Container (LXC):
+# ==========================================
+# ERROR: Container (CT) 100 Already Exists!
+# ==========================================
+# Container Details:
+#   ID: 100
+#   Type: Container
+#   Name: existing-container
+#   Status: running
+#
+# Options:
+#   1. Destroy and recreate (converts to VM)
+#   2. Use a different BUILD_VM_ID
 ```
 
-**Option 1: Use a different VM ID**
+**Option 1: Use a different ID**
 ```bash
-# Check which VM IDs are available
-ssh root@proxmox "qm list"
+# Check which IDs are available
+ssh root@proxmox "qm list"          # List VMs
+ssh root@proxmox "pct list"         # List Containers
+ssh root@proxmox "pvesh get /cluster/resources --type vm"  # All resources
 
 # In .env, change to an available ID:
 export BUILD_VM_ID="101"  # or 102, 103, etc.
