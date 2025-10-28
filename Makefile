@@ -1,6 +1,6 @@
-.PHONY: help all deploy configure remove clean build-image build-image-remote check-image \
-        deploy-full status update test-connection generate-config generate-inventory \
-        deploy-only configure-only remove-confirm list-vms vm-status cleanup-vms \
+.PHONY: help deploy configure remove clean build-image build-image-remote check-image \
+        status test-connection generate-config generate-inventory \
+        list-vms vm-status cleanup-vms generate-config-silent generate-inventory-silent \
         deploy-build-vm build-vm-status remove-build-vm detect-build-vm-ip ssh-build-vm update-env
 
 # Load environment variables from .env if it exists
@@ -66,34 +66,27 @@ help: ## Display this help message
 	@echo ""
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make $(GREEN)<target>$(NC)\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  $(GREEN)%-20s$(NC) %s\n", $$1, $$2 } /^##@/ { printf "\n$(BLUE)%s$(NC)\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 	@echo ""
-	@echo "$(BLUE)Options:$(NC)"
-	@echo "  $(GREEN)VERBOSE=1/2/3$(NC)        Add verbosity (-v/-vv/-vvv)"
-	@echo "  $(GREEN)CHECK=1$(NC)              Run in check mode (dry-run)"
-	@echo "  $(GREEN)DIFF=1$(NC)               Show differences"
-	@echo "  $(GREEN)CONFIRM_DELETE=true$(NC)  Confirm VM deletion (required for remove/cleanup)"
+	@echo "$(BLUE)Quick Start:$(NC)"
+	@echo "  1. make init           # Create .env file"
+	@echo "  2. make edit-env       # Edit configuration"
+	@echo "  3. make deploy-build-vm && make build-image-remote  # Build image (one-time)"
+	@echo "  4. make deploy         # Deploy VMs"
+	@echo "  5. make configure      # Configure VMs"
 	@echo ""
-	@echo "$(BLUE)Examples:$(NC)"
-	@echo "  make deploy                          # Deploy VMs"
-	@echo "  make deploy VERBOSE=2                # Deploy with verbose output"
-	@echo "  make configure CHECK=1               # Dry-run configuration"
-	@echo "  make remove CONFIRM_DELETE=true      # Remove VMs via Ansible"
-	@echo "  make cleanup-vms CONFIRM_DELETE=true # Quick cleanup via SSH (faster)"
+	@echo "$(BLUE)Note:$(NC) All config is controlled by .env - deploy auto-generates Ansible configs"
 	@echo ""
 
 ##@ Main Operations
 
-all: check-env check-image deploy configure ## Full deployment (image check + deploy + configure)
-	@echo "$(GREEN)Full deployment completed!$(NC)"
-
-deploy: check-env check-image deploy-only ## Deploy VMs to Proxmox
+deploy: check-env generate-config-silent generate-inventory-silent check-image ## Deploy VMs to Proxmox
+	@echo "$(BLUE)Deploying VMs to Proxmox...$(NC)"
+	@$(ANSIBLE) -i $(INVENTORY) $(DEPLOY_PLAYBOOK) $(ANSIBLE_OPTS)
 	@echo "$(GREEN)VM deployment completed!$(NC)"
-	@echo "$(YELLOW)Next step: Update $(VM_INVENTORY) with VM IPs, then run 'make configure'$(NC)"
 
-configure: check-env configure-only ## Configure deployed VMs (updates, SSH keys, services)
+configure: check-env ## Configure deployed VMs (updates, SSH keys, services)
+	@echo "$(BLUE)Configuring deployed VMs...$(NC)"
+	@$(ANSIBLE) -i $(VM_INVENTORY) $(CONFIGURE_PLAYBOOK) $(ANSIBLE_OPTS)
 	@echo "$(GREEN)VM configuration completed!$(NC)"
-
-deploy-full: check-env check-image deploy-only configure-only ## Deploy and configure VMs in one step
-	@echo "$(GREEN)Full deployment and configuration completed!$(NC)"
 
 remove: check-env ## Remove VMs from Proxmox (requires CONFIRM_DELETE=true)
 ifeq ($(CONFIRM_DELETE),true)
@@ -314,10 +307,16 @@ generate-config: ## Generate vm_config.yml from environment variables
 	@./generate-config.sh
 	@echo "$(GREEN)Configuration generated!$(NC)"
 
+generate-config-silent:
+	@./generate-config.sh > /dev/null
+
 generate-inventory: ## Generate inventory from environment variables
 	@echo "$(BLUE)Generating inventory from environment...$(NC)"
 	@./generate-inventory.sh
 	@echo "$(GREEN)Inventory generated!$(NC)"
+
+generate-inventory-silent:
+	@./generate-inventory.sh > /dev/null
 
 edit-config: ## Edit VM configuration file
 	@$${EDITOR:-vim} vars/vm_config.yml
@@ -453,11 +452,3 @@ check-env: ## Check if required environment is set up
 		echo "Run 'make init' to create it from .env.example"; \
 		exit 1; \
 	fi
-
-deploy-only:
-	@echo "$(BLUE)Deploying VMs to Proxmox...$(NC)"
-	@$(ANSIBLE) -i $(INVENTORY) $(DEPLOY_PLAYBOOK) $(ANSIBLE_OPTS)
-
-configure-only:
-	@echo "$(BLUE)Configuring deployed VMs...$(NC)"
-	@$(ANSIBLE) -i $(VM_INVENTORY) $(CONFIGURE_PLAYBOOK) $(ANSIBLE_OPTS)

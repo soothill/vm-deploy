@@ -62,17 +62,12 @@ See [ENV_MANAGEMENT.md](ENV_MANAGEMENT.md) for details.
 Configure these key settings in [.env](.env.example):
 - Proxmox API credentials and host
 - **Image storage path** (customize where the image is stored)
-- Storage pool and disk sizes
+- Storage pool and disk sizes (ensure ZFS has `sparse 1` enabled!)
 - Network bridges
 - VM resource defaults (memory, cores, VM IDs)
 - GitHub username (optional)
 
-**IMPORTANT:** After editing `.env`, generate the Ansible configuration:
-```bash
-make generate-config  # Creates vars/vm_config.yml from .env
-```
-
-The `vars/vm_config.yml` file is auto-generated from your `.env` - don't edit it directly!
+**Note:** All configuration is in `.env`. The `make deploy` command automatically generates Ansible configs from `.env`, so you never need to manually edit `vars/vm_config.yml` or `inventory.ini`.
 
 **Need custom image storage?** See [IMAGE_CONFIGURATION.md](IMAGE_CONFIGURATION.md) for detailed configuration options.
 
@@ -117,42 +112,37 @@ Note: Direct build on Proxmox (Debian-based) may have compatibility issues. Buil
 
 ### Step 3: Deploy VMs (2-5 minutes)
 
-```bash
-# Test connection first
-make test-connection
+**IMPORTANT:** If using ZFS storage, ensure thin provisioning is enabled! See [ZFS_THIN_PROVISIONING.md](ZFS_THIN_PROVISIONING.md)
 
-# Deploy VMs
+```bash
+# Deploy VMs (automatically generates configs from .env)
 make deploy
 ```
 
-Or with options:
+That's it! The `deploy` command:
+- Automatically generates `vars/vm_config.yml` from your `.env`
+- Automatically generates `inventory.ini` from your `.env`
+- Checks that the image exists
+- Deploys all VMs to Proxmox
+
+**Troubleshooting:** If deployment fails with "out of space" on ZFS, you need to enable thin provisioning. See [ZFS_THIN_PROVISIONING.md](ZFS_THIN_PROVISIONING.md) and [CLEANUP_GUIDE.md](CLEANUP_GUIDE.md).
+
+### Step 4: Configure VMs (Optional, 5-10 minutes)
+
+After deployment, configure VMs with updates and SSH keys:
+
 ```bash
-# Verbose deployment
-make deploy VERBOSE=2
+# Update inventory-vms.ini with actual VM IPs
+make edit-vm-inventory
 
-# Dry-run (check mode)
-make deploy CHECK=1
-```
-
-### Step 4: Configure VMs (5-10 minutes)
-
-After deployment, update [inventory-vms.ini](inventory-vms.ini) with actual VM IPs, then:
-
-```bash
-# Configure VMs (updates, SSH keys, services)
+# Configure VMs
 make configure
-```
-
-Or deploy and configure in one step:
-```bash
-make deploy-full
 ```
 
 This will:
 - Import your GitHub SSH keys
 - Run zypper update to get latest packages
-- Verify avahi-daemon is running
-- Verify lldpd is running
+- Verify services are running
 - Check data disks are ready for Ceph
 
 ## Makefile Commands
