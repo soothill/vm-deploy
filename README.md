@@ -23,16 +23,32 @@ Fast, automated deployment of OpenSUSE Leap VMs optimized for Ceph storage clust
 
 ### Prerequisites
 
-- GNU Make installed
-- Ansible 2.9+
-- SSH access to Proxmox host
-- Python 3 with Ansible control node libraries:
-  ```bash
-  # Install required Python libraries on your machine (not Proxmox)
-  pip3 install --user --break-system-packages proxmoxer requests
-  # Or without --break-system-packages on non-Homebrew systems:
-  pip3 install --user proxmoxer requests
-  ```
+**Required software on your machine (not Proxmox):**
+
+1. **GNU Make** - Usually pre-installed on Linux/macOS
+
+2. **Ansible 2.9+** - Install with:
+   ```bash
+   # macOS
+   brew install ansible
+
+   # Ubuntu/Debian
+   sudo apt install ansible
+
+   # Using pip
+   pip3 install --user ansible
+   ```
+
+3. **Python libraries for Ansible Proxmox module:**
+   ```bash
+   # macOS (Homebrew Python)
+   pip3 install --user --break-system-packages proxmoxer requests
+
+   # Linux / standard Python
+   pip3 install --user proxmoxer requests
+   ```
+
+4. **SSH access to Proxmox host** - Passwordless SSH keys recommended
 
 ### Step 1: Initialize Configuration
 
