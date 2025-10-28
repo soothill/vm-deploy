@@ -59,7 +59,7 @@ $PROXMOX_API_HOST ansible_user=$PROXMOX_SSH_USER
 
 [proxmox_host:vars]
 ansible_python_interpreter=/usr/bin/python3
-# ansible_ssh_private_key_file=$PROXMOX_SSH_KEY
+ansible_ssh_private_key_file=$PROXMOX_SSH_KEY
 EOF
 
 echo -e "${GREEN}✓${NC} Generated: $PROXMOX_INVENTORY"
