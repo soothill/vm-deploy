@@ -250,6 +250,23 @@
       args:
         executable: /bin/bash
 
+    - name: Configure cloud-init with hostname and credentials
+      ansible.builtin.shell: |
+        # Configure cloud-init with hostname, user, and password
+        qm set {{ item.vmid }} \
+          --ciuser root \
+          --cipassword '{{ vm_root_password | default("opensuse") }}' \
+          --searchdomain local \
+          --nameserver 8.8.8.8
+
+        # Create cloud-init drive
+        qm set {{ item.vmid }} --ide2 {{ storage_pool }}:cloudinit
+      loop: "{{ vms }}"
+      changed_when: true
+      failed_when: false
+      args:
+        executable: /bin/bash
+
     - name: Configure VM performance settings
       ansible.builtin.shell: |
         qm set {{ item.vmid }} \
