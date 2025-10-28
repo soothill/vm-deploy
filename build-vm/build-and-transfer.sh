@@ -79,6 +79,9 @@ else
     OUTPUT_DIR="$(dirname "${OPENSUSE_IMAGE_PATH:-/var/lib/vz/template/iso/opensuse-leap-custom.qcow2}")"
 fi
 
+# Strip .qcow2 extension if present (to avoid doubling it)
+IMAGE_NAME="${IMAGE_NAME%.qcow2}"
+
 FINAL_IMAGE_PATH="${OUTPUT_DIR}/${IMAGE_NAME}.qcow2"
 
 echo "=========================================="

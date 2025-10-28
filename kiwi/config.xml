@@ -50,6 +50,7 @@
         <package name="kernel-default"/>
         <package name="kernel-firmware-all"/>
         <package name="dracut"/>
+        <package name="dracut-kiwi-oem-repart"/>
         
         <!-- Bootloader -->
         <package name="grub2"/>
