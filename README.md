@@ -39,16 +39,9 @@ Fast, automated deployment of OpenSUSE Leap VMs optimized for Ceph storage clust
    pip3 install --user ansible
    ```
 
-3. **Python libraries for Ansible Proxmox module:**
-   ```bash
-   # macOS (Homebrew Python)
-   pip3 install --user --break-system-packages proxmoxer requests
+3. **SSH access to Proxmox host** - Passwordless SSH keys recommended
 
-   # Linux / standard Python
-   pip3 install --user proxmoxer requests
-   ```
-
-4. **SSH access to Proxmox host** - Passwordless SSH keys recommended
+**Note**: This project uses pure SSH/CLI commands (`qm`) instead of Proxmox API modules. No Python libraries (proxmoxer, requests) are needed on either the control machine or Proxmox host. See [ARCHITECTURE.md](ARCHITECTURE.md) for details.
 
 ### Step 1: Initialize Configuration
 
