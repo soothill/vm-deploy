@@ -32,13 +32,13 @@
         <user password="$1$wYJUgpM5$RXMMeASDc035eX.NbYWFl0" home="/root" name="root" groups="root"/>
     </users>
     <repository type="rpm-md" alias="openSUSE-Leap-15.6-OSS">
-        <source path="https://download.opensuse.org/distribution/leap/15.6/repo/oss/"/>
+        <source path="http://download.opensuse.org/distribution/leap/15.6/repo/oss/"/>
     </repository>
     <repository type="rpm-md" alias="openSUSE-Leap-15.6-Update">
-        <source path="https://download.opensuse.org/update/leap/15.6/oss/"/>
+        <source path="http://download.opensuse.org/update/leap/15.6/oss/"/>
     </repository>
     <repository type="rpm-md" alias="openSUSE-Leap-15.6-NonOSS">
-        <source path="https://download.opensuse.org/distribution/leap/15.6/repo/non-oss/"/>
+        <source path="http://download.opensuse.org/distribution/leap/15.6/repo/non-oss/"/>
     </repository>
     <packages type="image">
         <!-- Base System -->
@@ -127,6 +127,7 @@
         <package name="filesystem"/>
         <package name="glibc-locale-base"/>
         <package name="ca-certificates"/>
+        <package name="ca-certificates-mozilla"/>
         <package name="openSUSE-release"/>
     </packages>
 </image>
