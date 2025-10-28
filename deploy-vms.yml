@@ -81,11 +81,11 @@
 
     - name: Import and configure OS disk (ZFS storage - thin provisioned)
       ansible.builtin.shell: |
-        # Import disk image (ZFS volumes are thin provisioned by default)
+        # Import disk image with sparse/thin provisioning
         qm importdisk {{ item.vmid }} {{ opensuse_image_path }} {{ storage_pool }}
 
-        # Attach OS disk as scsi0
-        qm set {{ item.vmid }} --scsi0 {{ storage_pool }}:vm-{{ item.vmid }}-disk-0,discard=on,size=50G
+        # Attach OS disk as scsi0 with sparse=1 for thin provisioning
+        qm set {{ item.vmid }} --scsi0 {{ storage_pool }}:vm-{{ item.vmid }}-disk-0,discard=on,size=50G,sparse=1
 
         # Set boot disk
         qm set {{ item.vmid }} --boot order=scsi0
@@ -130,8 +130,9 @@
     - name: Create and attach data disks (ZFS storage - thin provisioned)
       ansible.builtin.shell: |
         for i in {1..4}; do
-          # ZFS volumes are thin provisioned by default (sparse=on)
-          qm set {{ item.vmid }} --scsi$i {{ storage_pool }}:{{ data_disk_size | regex_replace('G$', '') }},discard=on
+          # ZFS volumes with sparse=on for thin provisioning
+          # Format: pool:size (size in GB without G suffix)
+          qm set {{ item.vmid }} --scsi$i {{ storage_pool }}:{{ data_disk_size | regex_replace('G$', '') }},discard=on,sparse=1
         done
       loop: "{{ vms }}"
       when: storage_type == "zfspool"
@@ -165,8 +166,8 @@
 
     - name: Create and attach Ceph mon disk (ZFS storage - thin provisioned)
       ansible.builtin.shell: |
-        # ZFS volumes are thin provisioned by default (sparse=on)
-        qm set {{ item.vmid }} --scsi5 {{ storage_pool }}:{{ mon_disk_size | default('100G') | regex_replace('G$', '') }},discard=on
+        # ZFS volumes with sparse=1 for thin provisioning
+        qm set {{ item.vmid }} --scsi5 {{ storage_pool }}:{{ mon_disk_size | default('100G') | regex_replace('G$', '') }},discard=on,sparse=1
       loop: "{{ vms }}"
       when: storage_type == "zfspool"
       changed_when: true
