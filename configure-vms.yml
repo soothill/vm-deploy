@@ -44,6 +44,15 @@
         msg: "{{ github_import.stdout_lines | default(['GitHub SSH key import skipped']) }}"
       when: github_username is defined and github_username | length > 0
 
+    - name: Install lldpd and avahi (if not in base image)
+      community.general.zypper:
+        name:
+          - lldpd
+          - avahi
+          - avahi-utils
+        state: present
+      register: install_network_discovery
+
     - name: Ensure avahi-daemon is running
       ansible.builtin.systemd:
         name: avahi-daemon

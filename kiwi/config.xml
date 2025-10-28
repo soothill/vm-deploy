@@ -75,6 +75,9 @@
         <package name="openssh"/>
         <package name="rsync"/>
         <package name="ethtool"/>
+        <package name="lldpd"/>
+        <package name="avahi"/>
+        <package name="avahi-utils"/>
         
         <!-- System tools -->
         <package name="systemd"/>

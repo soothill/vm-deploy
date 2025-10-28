@@ -1,405 +1,140 @@
-# OpenSUSE VM Deployment for Ceph Cluster
+# OpenSUSE Ceph Cluster Deployment
 
-Fast, automated deployment of OpenSUSE Leap VMs optimized for Ceph storage clusters using Ansible and KIWI.
+Automated deployment of OpenSUSE VMs on Proxmox for Ceph storage cluster.
 
-**Quick Start:** Run `make help` for available commands • See [MAKEFILE_GUIDE.md](MAKEFILE_GUIDE.md) for detailed Makefile usage
+**🚀 New here? Start with [QUICKSTART.md](QUICKSTART.md)**
 
 ## Features
 
-- ✅ Deploy 4 OpenSUSE VMs in 2-5 minutes
-- ✅ Pre-built KIWI images with automatic updates
-- ✅ **Makefile wrapper for easy Ansible management**
-- ✅ **GitHub SSH key import during deployment**
-- ✅ **Dual network interfaces** (private + public)
-- ✅ Thin-provisioned storage (50GB OS + 4x1TB data)
-- ✅ **Data disks left unformatted for Ceph OSD**
-- ✅ **avahi-daemon** for mDNS/service discovery
-- ✅ **lldpd** for network topology discovery
-- ✅ Single NVMe storage pool configuration
-- ✅ **Automatic system updates** during image build
-- ✅ QEMU guest agent and cloud-init ready
+- **Simple workflow** - Edit `.env`, run `make deploy`, done!
+- **Auto-configuration** - Never manually edit Ansible files
+- **No dependencies** - Pure SSH/CLI, no Python libraries on Proxmox
+- **Storage agnostic** - ZFS, LVM-thin, or Directory with thin provisioning
+- **Network discovery** - LLDP and Avahi pre-installed
+- **Cross-platform** - Develop on Mac, deploy from Linux
 
 ## Quick Start
 
-### Prerequisites
-
-**Required software on your machine (not Proxmox):**
-
-1. **GNU Make** - Usually pre-installed on Linux/macOS
-
-2. **Ansible 2.9+** - Install with:
-   ```bash
-   # macOS
-   brew install ansible
-
-   # Ubuntu/Debian
-   sudo apt install ansible
-
-   # Using pip
-   pip3 install --user ansible
-   ```
-
-3. **SSH access to Proxmox host** - Passwordless SSH keys recommended
-
-**Note**: This project uses pure SSH/CLI commands (`qm`) instead of Proxmox API modules. No Python libraries (proxmoxer, requests) are needed on either the control machine or Proxmox host. See [ARCHITECTURE.md](ARCHITECTURE.md) for details.
-
-### Step 1: Initialize Configuration
-
 ```bash
-# Create .env file from template
-make init
+# 1. Setup
+make init && make edit-env
 
-# Edit your configuration
-make edit-env
-```
+# 2. Build image (one-time, 20-45 min)
+make deploy-build-vm && make build-image-remote
 
-**Updating existing configuration:** If you already have a `.env` file and pulled new changes:
-```bash
-make update-env  # Adds new variables, preserves your values
-```
-See [ENV_MANAGEMENT.md](ENV_MANAGEMENT.md) for details.
-
-Configure these key settings in [.env](.env.example):
-- Proxmox API credentials and host
-- **Image storage path** (customize where the image is stored)
-- Storage pool and disk sizes (ensure ZFS has `sparse 1` enabled!)
-- Network bridges
-- VM resource defaults (memory, cores, VM IDs)
-- GitHub username (optional)
-
-**Note:** All configuration is in `.env`. The `make deploy` command automatically generates Ansible configs from `.env`, so you never need to manually edit `vars/vm_config.yml` or `inventory.ini`.
-
-**Need custom image storage?** See [IMAGE_CONFIGURATION.md](IMAGE_CONFIGURATION.md) for detailed configuration options.
-
-### Step 2: Build the OpenSUSE Image (One-Time, 20-45 min)
-
-**RECOMMENDED: Use Dedicated Build VM** (works best)
-
-```bash
-# Deploy OpenSUSE build VM (one-time, ~5 min)
-make deploy-build-vm
-
-# Build image on the build VM (~15-40 min)
-make build-image-remote
-```
-
-The build VM approach:
-- Creates a dedicated OpenSUSE VM on Proxmox for building
-- KIWI works natively on OpenSUSE (full support)
-- Builds image and transfers it to Proxmox automatically
-- **Auto-detects VM IP via DHCP** - no manual configuration needed
-- VM can be reused for future builds
-- See [BUILD_VM_GUIDE.md](BUILD_VM_GUIDE.md) for complete guide
-
-**Troubleshooting:** If the IP detection fails, you can manually detect it:
-```bash
-# Auto-detect and save build VM IP
-make detect-build-vm-ip
-
-# Or set manually in .env
-export BUILD_VM_IP="192.168.1.x"
-```
-
-**Alternative: Direct Build on Proxmox** (legacy method)
-
-```bash
-# Build directly on Proxmox host
-make upload-kiwi
-make build-image
-```
-
-Note: Direct build on Proxmox (Debian-based) may have compatibility issues. Build VM method is recommended for production use.
-
-### Step 3: Deploy VMs (2-5 minutes)
-
-**IMPORTANT:** If using ZFS storage, ensure thin provisioning is enabled! See [ZFS_THIN_PROVISIONING.md](ZFS_THIN_PROVISIONING.md)
-
-```bash
-# Deploy VMs (automatically generates configs from .env)
+# 3. Deploy VMs (2-5 minutes)
 make deploy
-```
 
-That's it! The `deploy` command:
-- Automatically generates `vars/vm_config.yml` from your `.env`
-- Automatically generates `inventory.ini` from your `.env`
-- Checks that the image exists
-- Deploys all VMs to Proxmox
-
-**Troubleshooting:** If deployment fails with "out of space" on ZFS, you need to enable thin provisioning. See [ZFS_THIN_PROVISIONING.md](ZFS_THIN_PROVISIONING.md) and [CLEANUP_GUIDE.md](CLEANUP_GUIDE.md).
-
-### Step 4: Configure VMs (Optional, 5-10 minutes)
-
-After deployment, configure VMs with updates and SSH keys:
-
-```bash
-# Update inventory-vms.ini with actual VM IPs
-make edit-vm-inventory
-
-# Configure VMs
+# 4. Optional: Configure VMs
 make configure
 ```
 
-This will:
-- Import your GitHub SSH keys
-- Run zypper update to get latest packages
-- Verify services are running
-- Check data disks are ready for Ceph
+**That's it!** See [QUICKSTART.md](QUICKSTART.md) for detailed walkthrough.
 
-## Makefile Commands
+## Prerequisites
 
-See all available commands:
-```bash
-make help
-```
+- **Ansible 2.9+** (on your machine)
+- **SSH access to Proxmox** (passwordless keys)
+- **Proxmox VE** (any recent version)
+- **Thin provisioning enabled** (see [ZFS_THIN_PROVISIONING.md](ZFS_THIN_PROVISIONING.md))
 
-### Main Operations
+No Python libraries needed on Proxmox!
 
-| Command | Description |
-|---------|-------------|
-| `make all` | Full deployment (image check + deploy + configure) |
-| `make deploy` | Deploy VMs to Proxmox |
-| `make configure` | Configure deployed VMs |
-| `make deploy-full` | Deploy and configure in one step |
-| `make remove CONFIRM_DELETE=true` | Remove VMs (requires confirmation) |
-
-### Image Management
-
-| Command | Description |
-|---------|-------------|
-| `make build-image` | Build OpenSUSE image on Proxmox |
-| `make check-image` | Check if image exists |
-| `make upload-kiwi` | Upload KIWI files to Proxmox |
-
-### VM Operations
-
-| Command | Description |
-|---------|-------------|
-| `make list-vms` | List configured VMs |
-| `make vm-status` | Check VM status |
-| `make start-vms` | Start all VMs |
-| `make stop-vms` | Stop all VMs |
-
-### Testing & Validation
-
-| Command | Description |
-|---------|-------------|
-| `make test-connection` | Test Proxmox connection |
-| `make test-vm-connection` | Test VM connections |
-| `make check-syntax` | Check playbook syntax |
-| `make dry-run` | Dry-run full deployment |
-
-### Configuration
-
-| Command | Description |
-|---------|-------------|
-| `make edit-config` | Edit VM configuration |
-| `make edit-inventory` | Edit Proxmox inventory |
-| `make edit-vm-inventory` | Edit VM inventory |
-| `make edit-env` | Edit environment variables |
-
-### Utility
-
-| Command | Description |
-|---------|-------------|
-| `make status` | Show deployment status |
-| `make info` | Show detailed configuration |
-| `make update` | Update all VMs |
-| `make clean` | Clean generated files |
-
-### Options
-
-Add these options to any command:
+## Essential Commands
 
 ```bash
-VERBOSE=1/2/3    # Add verbosity (-v/-vv/-vvv)
-CHECK=1          # Run in check mode (dry-run)
-DIFF=1           # Show differences
-CONFIRM_DELETE=true  # Required for remove command
+make deploy                          # Deploy VMs (auto-generates configs)
+make configure                       # Configure VMs (optional)
+make cleanup-vms CONFIRM_DELETE=true # Remove VMs
+make list-vms                        # List VMs
+make help                            # Show all commands
 ```
 
-Examples:
-```bash
-make deploy VERBOSE=2
-make configure CHECK=1 DIFF=1
-make remove CONFIRM_DELETE=true
-```
+## Configuration
 
-## Alternative: Direct Ansible Usage
-
-If you prefer using Ansible directly without Make:
+Everything is in `.env`:
 
 ```bash
-# Deploy VMs
-ansible-playbook -i inventory.ini deploy-vms.yml
-
-# Configure VMs
-ansible-playbook -i inventory-vms.ini configure-vms.yml
-
-# Remove VMs
-ansible-playbook -i inventory.ini remove-vms.yml -e "confirm_deletion=true"
-
-# With verbosity
-ansible-playbook -i inventory.ini deploy-vms.yml -vvv
-
-# Dry-run
-ansible-playbook -i inventory.ini deploy-vms.yml --check
+make edit-env    # Edit configuration
+make deploy      # Apply changes (auto-generates Ansible configs)
 ```
 
-## Storage Configuration
+**Note:** The `.env` file is your single source of truth. You never need to edit `vars/vm_config.yml` or `inventory.ini` - they're auto-generated!
 
-### Single NVMe Pool Design
+## VM Layout
 
-All disks use the same high-performance NVMe storage pool:
+Each VM includes:
+- **OS disk**: 50GB
+- **Data disks**: 4 × 1TB (configurable) for Ceph OSD
+- **Mon disk**: 100GB for Ceph MON
+- **Networks**: Dual NICs (public/private)
+- **Services**: QEMU guest agent, LLDP, Avahi
 
-```yaml
-storage_pool: "nvme-pool"  # Your NVMe storage name
-```
-
-### Disk Layout Per VM
-
-- **OS Disk** (scsi0): 50GB thin-provisioned, formatted ext4
-- **Data Disk 1** (scsi1): 1TB thin-provisioned, **UNFORMATTED**
-- **Data Disk 2** (scsi2): 1TB thin-provisioned, **UNFORMATTED**
-- **Data Disk 3** (scsi3): 1TB thin-provisioned, **UNFORMATTED**
-- **Data Disk 4** (scsi4): 1TB thin-provisioned, **UNFORMATTED**
-
-**Important**: Data disks are intentionally left unformatted and unmounted for Ceph OSD usage.
-
-## GitHub SSH Key Import
-
-### Automatic Import
-
-Set your GitHub username in `vars/vm_config.yml`:
-
-```yaml
-github_username: "your-github-username"
-```
-
-Keys will be automatically imported when you run `configure-vms.yml`.
-
-### Manual Import
-
-On any VM:
-
-```bash
-/usr/local/bin/import-github-keys.sh your-github-username root
-```
-
-### Benefits
-
-- No need to manually copy SSH keys
-- Can import keys from multiple GitHub accounts
-- Keys are added to existing authorized_keys (non-destructive)
-
-## Network Discovery
-
-### LLDP (Link Layer Discovery Protocol)
-
-Check discovered network neighbors:
-
-```bash
-lldpcli show neighbors
-lldpcli show neighbors details
-```
-
-### Avahi (mDNS/DNS-SD)
-
-Browse available services:
-
-```bash
-avahi-browse -a
-avahi-resolve -n hostname.local
-```
-
-## System Updates
-
-### During Image Build
-
-The KIWI build process automatically runs:
-```bash
-zypper refresh && zypper update -y
-```
-
-### After Deployment
-
-The `configure-vms.yml` playbook runs another update:
-```bash
-zypper refresh && zypper update -y
-```
-
-### Manual Updates
-
-```bash
-zypper refresh && zypper update
-```
-
-## Ceph Deployment
-
-After VMs are deployed and configured:
-
-### Verify Data Disks
-
-```bash
-# Check disks are present and unformatted
-lsblk
-blkid /dev/sdb /dev/sdc /dev/sdd /dev/sde  # Should show no output
-```
-
-### Deploy Ceph OSDs
-
-```bash
-# Example with cephadm
-ceph orch daemon add osd ceph-node1:/dev/sdb
-ceph orch daemon add osd ceph-node1:/dev/sdc
-ceph orch daemon add osd ceph-node1:/dev/sdd
-ceph orch daemon add osd ceph-node1:/dev/sde
-# Repeat for each node
-```
+All disks are thin provisioned. Data/mon disks are unformatted for Ceph.
 
 ## Troubleshooting
 
-### GitHub SSH Key Import Fails
+### "Out of space" on ZFS
+Enable thin provisioning: [ZFS_THIN_PROVISIONING.md](ZFS_THIN_PROVISIONING.md)
+
+### "VM already exists"
+Run: `make cleanup-vms CONFIRM_DELETE=true && make deploy`
+
+### SSH connection fails
+Run: `make test-connection`
+
+### Image not found
+Build it: `make deploy-build-vm && make build-image-remote`
+
+## Documentation
+
+### Start Here
+- **[QUICKSTART.md](QUICKSTART.md)** - Complete walkthrough
+- **[ZFS_THIN_PROVISIONING.md](ZFS_THIN_PROVISIONING.md)** - Required for ZFS users!
+
+### Reference
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Why CLI instead of API
+- **[CLEANUP_GUIDE.md](CLEANUP_GUIDE.md)** - Removal procedures
+- **[BUILD_VM_GUIDE.md](BUILD_VM_GUIDE.md)** - Build VM details
+- **[LINUX_DEPLOYMENT.md](LINUX_DEPLOYMENT.md)** - Cross-platform workflow
+
+## Complete Example
 
 ```bash
-curl -I https://github.com
-/usr/local/bin/import-github-keys.sh your-username root
-curl https://github.com/your-username.keys
+# Setup (one-time)
+make init
+vim .env    # Configure Proxmox, storage, VMs
+
+# Build image (one-time)
+make deploy-build-vm
+make build-image-remote
+
+# Enable ZFS thin provisioning (if using ZFS)
+ssh root@proxmox.local 'echo "sparse 1" >> /etc/pve/storage.cfg'
+
+# Deploy VMs
+make deploy
+
+# Done! VMs are ready
 ```
 
-### avahi-daemon Not Running
+## Workflow
 
-```bash
-systemctl status avahi-daemon
-systemctl start avahi-daemon
-journalctl -u avahi-daemon
+```
+Edit .env → make deploy → Done!
 ```
 
-### lldpd Not Discovering Neighbors
+The `make deploy` command:
+1. Auto-generates `vars/vm_config.yml` from `.env`
+2. Auto-generates `inventory.ini` from `.env`
+3. Checks image exists
+4. Warns about existing VMs
+5. Deploys new VMs
+6. Configures disks and networking
+7. Starts VMs
 
-```bash
-systemctl status lldpd
-systemctl restart lldpd
-# Wait 30 seconds
-lldpcli show neighbors
-```
-
-## Time Estimates
-
-| Task | Duration |
-|------|----------|
-| Build image (first time) | 15-40 min |
-| Deploy 4 VMs | 2-5 min |
-| Configure VMs | 5-10 min |
-| **Total** | **20-55 min** |
+**Simple. Automatic. Reliable.**
 
 ## Support
 
-For issues:
-- **KIWI**: Check `kiwi/build/build.log`
-- **Ansible**: Run with `-vvv`
-- **Proxmox**: Check `/var/log/pve/`
-- **VMs**: Check `journalctl -xe`
-
----
-
-**Optimized for Ceph Storage Clusters on NVMe**
+For detailed help, see [QUICKSTART.md](QUICKSTART.md) and other documentation above.
