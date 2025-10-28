@@ -246,7 +246,8 @@ else
 
         # Extract IPv4 address only (ignore IPv6 and localhost)
         # Use || echo "" to prevent set -e from exiting on failure
-        VM_IP=$(ssh ${PROXMOX_USER}@${PROXMOX_HOST} "qm guest cmd ${BUILD_VM_ID} network-get-interfaces 2>/dev/null | grep -oP '\"ip-address\":\"\K[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' | grep -v '127.0.0.1' | head -1" 2>/dev/null || echo "")
+        # BSD-compatible grep (no -P flag)
+        VM_IP=$(ssh ${PROXMOX_USER}@${PROXMOX_HOST} "qm guest cmd ${BUILD_VM_ID} network-get-interfaces 2>/dev/null | grep -o '\"ip-address\":\"[0-9][0-9.]*\"' | grep -o '[0-9][0-9.]*' | grep -v '127.0.0.1' | grep -v ':' | head -1" 2>/dev/null || echo "")
 
         if [ -n "${VM_IP}" ] && [ "${VM_IP}" != "." ] && [ "${VM_IP}" != ".." ]; then
             echo "✓ Successfully detected IP via guest agent: ${VM_IP}"
