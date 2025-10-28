@@ -115,7 +115,10 @@ set -e
 cd /tmp
 if [ ! -f opensuse-leap-cloud.qcow2 ]; then
     echo "Downloading OpenSUSE Leap 15.6 cloud image..."
-    wget -O opensuse-leap-cloud.qcow2 "${OPENSUSE_CLOUD_IMAGE_URL}"
+    # Force IPv4 to avoid IPv6 connection issues
+    wget --inet4-only -O opensuse-leap-cloud.qcow2 "${OPENSUSE_CLOUD_IMAGE_URL}" || \
+    wget -4 -O opensuse-leap-cloud.qcow2 "${OPENSUSE_CLOUD_IMAGE_URL}" || \
+    curl -4 -L -o opensuse-leap-cloud.qcow2 "${OPENSUSE_CLOUD_IMAGE_URL}"
 else
     echo "Cloud image already downloaded."
 fi

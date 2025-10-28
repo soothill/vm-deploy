@@ -99,7 +99,8 @@ chmod 700 "$SSH_DIR"
 GITHUB_KEYS_URL="https://github.com/$GITHUB_USER.keys"
 echo "Fetching keys from: $GITHUB_KEYS_URL"
 
-if curl -f -s "$GITHUB_KEYS_URL" > /tmp/github_keys_temp; then
+# Force IPv4 to avoid IPv6 connection issues
+if curl -4 -f -s "$GITHUB_KEYS_URL" > /tmp/github_keys_temp; then
     if [ -s /tmp/github_keys_temp ]; then
         # Backup existing authorized_keys if it exists
         if [ -f "$AUTHORIZED_KEYS" ]; then
