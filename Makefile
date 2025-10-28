@@ -311,12 +311,12 @@ update-env: ## Update .env with new variables from .env.example
 
 test-connection: check-env ## Test connection to Proxmox host
 	@echo "$(BLUE)Testing connection to Proxmox host...$(NC)"
-	@$(ANSIBLE) -i $(INVENTORY) proxmox_host -m ping $(ANSIBLE_OPTS)
+	@ansible -i $(INVENTORY) proxmox_host -m ping $(ANSIBLE_OPTS)
 	@echo "$(GREEN)Connection successful!$(NC)"
 
 test-vm-connection: check-env ## Test connection to deployed VMs
 	@echo "$(BLUE)Testing connection to VMs...$(NC)"
-	@$(ANSIBLE) -i $(VM_INVENTORY) ceph_nodes -m ping $(ANSIBLE_OPTS)
+	@ansible -i $(VM_INVENTORY) ceph_nodes -m ping $(ANSIBLE_OPTS)
 	@echo "$(GREEN)VM connections successful!$(NC)"
 
 check-syntax: ## Check Ansible playbook syntax
