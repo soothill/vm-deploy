@@ -224,19 +224,47 @@ else
     echo "Waiting for QEMU guest agent to become available..."
 
     VM_IP=""
-    for i in {1..24}; do
-        echo "Attempt $i/24: Checking guest agent..."
 
-        # Try to get IP via QEMU guest agent (BSD-compatible grep)
+    # Get VM MAC address for fallback detection
+    VM_MAC=$(ssh ${PROXMOX_USER}@${PROXMOX_HOST} "qm config ${BUILD_VM_ID} | grep -o 'net0:.*' | grep -o '[0-9A-Fa-f:]\{17\}' | head -1")
+
+    for i in {1..24}; do
+        echo "Attempt $i/24: Detecting IP address..."
+
+        # Method 1: Try QEMU guest agent first (BSD-compatible grep)
         VM_IP=$(ssh ${PROXMOX_USER}@${PROXMOX_HOST} "qm guest cmd ${BUILD_VM_ID} network-get-interfaces 2>/dev/null | grep -o '\"ip-address\":\"[0-9.]*\"' | grep -o '[0-9.]*' | grep -v 127.0.0.1 | head -1" || echo "")
 
         if [ -n "${VM_IP}" ]; then
-            echo "✓ Successfully detected IP address: ${VM_IP}"
+            echo "✓ Successfully detected IP via guest agent: ${VM_IP}"
+            break
+        fi
+
+        # Method 2: Try to find IP from ARP table using MAC address
+        if [ -n "${VM_MAC}" ]; then
+            VM_IP=$(ssh ${PROXMOX_USER}@${PROXMOX_HOST} "ip neigh show | grep -i '${VM_MAC}' | grep -o '[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}' | head -1" || echo "")
+
+            if [ -n "${VM_IP}" ]; then
+                echo "✓ Successfully detected IP via ARP table: ${VM_IP}"
+                echo "  (Guest agent not available, using network detection)"
+                break
+            fi
+        fi
+
+        # Method 3: Try DHCP leases file
+        VM_IP=$(ssh ${PROXMOX_USER}@${PROXMOX_HOST} "grep -i '${VM_MAC}' /var/lib/misc/dnsmasq.leases 2>/dev/null | awk '{print \$3}' | head -1" || echo "")
+
+        if [ -n "${VM_IP}" ]; then
+            echo "✓ Successfully detected IP via DHCP leases: ${VM_IP}"
+            echo "  (Guest agent not available, using DHCP records)"
             break
         fi
 
         if [ $i -lt 24 ]; then
-            echo "  Guest agent not ready yet, waiting 10 seconds..."
+            if [ $i -eq 1 ]; then
+                echo "  Waiting for VM to acquire IP address (guest agent: not responding, trying network detection)..."
+            else
+                echo "  Still waiting... (${i}0 seconds elapsed)"
+            fi
             sleep 10
         fi
     done
@@ -247,26 +275,33 @@ else
         echo "WARNING: Could Not Detect IP Address"
         echo "=========================================="
         echo ""
-        echo "The QEMU guest agent is not responding after 4 minutes."
+        echo "Failed to detect IP address after 4 minutes using:"
+        echo "  - QEMU guest agent"
+        echo "  - ARP table lookup (MAC: ${VM_MAC:-unknown})"
+        echo "  - DHCP leases file"
         echo ""
         echo "This could mean:"
-        echo "  1. VM is still booting (cloud-init can be slow)"
-        echo "  2. QEMU guest agent is not installed/running"
-        echo "  3. Network configuration issue"
+        echo "  1. VM is still booting (cloud-init can be very slow)"
+        echo "  2. Network connectivity issue"
+        echo "  3. Bridge/VLAN configuration problem"
         echo ""
         echo "Options to resolve:"
         echo ""
         echo "1. Check VM console and get IP manually:"
         echo "   ssh ${PROXMOX_USER}@${PROXMOX_HOST} 'qm terminal ${BUILD_VM_ID}'"
         echo "   # In console, run: ip a"
+        echo "   # Press Ctrl+O to exit console"
         echo "   # Then set in .env: export BUILD_VM_IP=\"<ip-address>\""
         echo ""
         echo "2. Wait longer and try detection again:"
         echo "   make detect-build-vm-ip"
         echo ""
-        echo "3. Check VM status:"
+        echo "3. Check VM and network status:"
         echo "   ssh ${PROXMOX_USER}@${PROXMOX_HOST} 'qm status ${BUILD_VM_ID}'"
-        echo "   ssh ${PROXMOX_USER}@${PROXMOX_HOST} 'qm agent ${BUILD_VM_ID} ping'"
+        echo "   ssh ${PROXMOX_USER}@${PROXMOX_HOST} 'pvesh get /nodes/${PROXMOX_NODE}/qemu/${BUILD_VM_ID}/status/current'"
+        echo "   ssh ${PROXMOX_USER}@${PROXMOX_HOST} 'ip neigh show | grep -i ${VM_MAC}'"
+        echo ""
+        echo "4. Check if VM got DHCP IP from router/DHCP server logs"
         echo ""
         echo "=========================================="
         exit 1

@@ -190,21 +190,36 @@ detect-build-vm-ip: check-env ## Auto-detect and save build VM IP address
 			echo "$(YELLOW)Build VM $$BUILD_VM_ID is not running (status: $$VM_STATUS)$(NC)"; \
 			echo "Starting build VM..."; \
 			ssh $(PROXMOX_SSH_USER)@$(PROXMOX_API_HOST) "qm start $$BUILD_VM_ID"; \
-			echo "Waiting 30 seconds for VM to boot..."; \
-			sleep 30; \
+			echo "Waiting 60 seconds for VM to boot..."; \
+			sleep 60; \
 		fi; \
-		echo "Querying QEMU guest agent for IP address..."; \
+		echo "Trying multiple detection methods..."; \
+		VM_MAC=$$(ssh $(PROXMOX_SSH_USER)@$(PROXMOX_API_HOST) "qm config $$BUILD_VM_ID | grep -o 'net0:.*' | grep -o '[0-9A-Fa-f:]\{17\}' | head -1"); \
 		BUILD_VM_IP=$$(ssh $(PROXMOX_SSH_USER)@$(PROXMOX_API_HOST) "qm guest cmd $$BUILD_VM_ID network-get-interfaces 2>/dev/null | grep -o '\"ip-address\":\"[0-9.]*\"' | grep -o '[0-9.]*' | grep -v 127.0.0.1 | head -1" || echo ""); \
 		if [ -n "$$BUILD_VM_IP" ]; then \
-			echo "$(GREEN)✓ Detected build VM IP: $$BUILD_VM_IP$(NC)"; \
+			echo "$(GREEN)✓ Detected IP via guest agent: $$BUILD_VM_IP$(NC)"; \
+		else \
+			BUILD_VM_IP=$$(ssh $(PROXMOX_SSH_USER)@$(PROXMOX_API_HOST) "ip neigh show | grep -i '$$VM_MAC' | grep -o '[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}' | head -1" || echo ""); \
+			if [ -n "$$BUILD_VM_IP" ]; then \
+				echo "$(GREEN)✓ Detected IP via ARP table: $$BUILD_VM_IP$(NC)"; \
+			else \
+				BUILD_VM_IP=$$(ssh $(PROXMOX_SSH_USER)@$(PROXMOX_API_HOST) "grep -i '$$VM_MAC' /var/lib/misc/dnsmasq.leases 2>/dev/null | awk '{print \$$3}' | head -1" || echo ""); \
+				if [ -n "$$BUILD_VM_IP" ]; then \
+					echo "$(GREEN)✓ Detected IP via DHCP leases: $$BUILD_VM_IP$(NC)"; \
+				fi; \
+			fi; \
+		fi; \
+		if [ -n "$$BUILD_VM_IP" ]; then \
 			echo "BUILD_VM_IP=$$BUILD_VM_IP" > build-vm/build-vm-ip.txt; \
 			echo "$(GREEN)✓ Saved to build-vm/build-vm-ip.txt$(NC)"; \
 		else \
 			echo "$(RED)ERROR: Could not detect IP address$(NC)"; \
 			echo ""; \
+			echo "Tried: guest agent, ARP table (MAC: $$VM_MAC), DHCP leases"; \
+			echo ""; \
 			echo "Please check:"; \
-			echo "  1. QEMU guest agent is running in VM"; \
-			echo "  2. VM has network connectivity"; \
+			echo "  1. VM has network connectivity"; \
+			echo "  2. Check console: ssh $(PROXMOX_SSH_USER)@$(PROXMOX_API_HOST) 'qm terminal $$BUILD_VM_ID'"; \
 			echo "  3. Set BUILD_VM_IP manually in .env"; \
 			exit 1; \
 		fi; \
