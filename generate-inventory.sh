@@ -41,6 +41,9 @@ fi
 
 # Set defaults
 PROXMOX_API_HOST="${PROXMOX_API_HOST:-proxmox.example.com}"
+PROXMOX_API_USER="${PROXMOX_API_USER:-root@pam}"
+PROXMOX_API_PASSWORD="${PROXMOX_API_PASSWORD:-}"
+PROXMOX_NODE="${PROXMOX_NODE:-pve}"
 PROXMOX_SSH_USER="${PROXMOX_SSH_USER:-root}"
 PROXMOX_SSH_KEY="${DEFAULT_SSH_KEY}"
 VM_SSH_USER="${VM_SSH_USER:-root}"
@@ -99,22 +102,14 @@ get_vm_ip() {
     local vmid=$2
     local detected_ip=""
 
-    # Try to get IP from qemu-guest-agent via SSH (simpler than API for guest agent)
-    # Just use Python to parse the JSON - it's available on all systems
-    detected_ip=$(ssh -o ConnectTimeout=5 -o BatchMode=yes "$PROXMOX_SSH_USER@$PROXMOX_API_HOST" \
-        "qm guest cmd $vmid network-get-interfaces 2>/dev/null | python3 -c '
-import sys, json
-try:
-    data = json.load(sys.stdin)
-    for iface in data:
-        if \"ip-addresses\" in iface:
-            for addr in iface[\"ip-addresses\"]:
-                ip = addr.get(\"ip-address\", \"\")
-                if ip and not ip.startswith(\"127.\") and \":\" not in ip:
-                    print(ip)
-                    sys.exit(0)
-except: pass
-' 2>/dev/null" || echo "")
+    # Try to get IP from qemu-guest-agent via Proxmox API
+    # Use our Python script that calls the API directly
+    detected_ip=$(python3 "$SCRIPT_DIR/scripts/proxmox_get_vm_ip.py" \
+        "$PROXMOX_API_HOST" \
+        "$PROXMOX_API_USER" \
+        "$PROXMOX_API_PASSWORD" \
+        "$PROXMOX_NODE" \
+        "$vmid" 2>/dev/null || echo "")
 
     # If guest agent doesn't work, try MAC address lookup in ARP table
     if [ -z "$detected_ip" ]; then
