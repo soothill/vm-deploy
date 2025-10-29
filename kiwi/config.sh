@@ -369,6 +369,12 @@ echo "Creating syslog user with sudo privileges..."
 # Create syslog user with home directory
 useradd -m -s /bin/bash -G wheel syslog || true
 
+# Set up SSH directory for root user
+mkdir -p /root/.ssh
+chmod 700 /root/.ssh
+touch /root/.ssh/authorized_keys
+chmod 600 /root/.ssh/authorized_keys
+
 # Set up SSH directory for syslog user
 mkdir -p /home/syslog/.ssh
 chmod 700 /home/syslog/.ssh
