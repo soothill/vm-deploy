@@ -47,14 +47,18 @@ VM_SSH_USER="${VM_SSH_USER:-root}"
 VM_ROOT_PASSWORD="${VM_ROOT_PASSWORD:-opensuse}"
 NUM_VMS="${NUM_VMS:-4}"
 
-# VM defaults
+# VM defaults (must match generate-config.sh)
 VM1_NAME="${VM1_NAME:-ceph-node1}"
+VM1_VMID="${VM1_VMID:-200}"
 VM1_IP="${VM1_IP:-192.168.1.10}"
 VM2_NAME="${VM2_NAME:-ceph-node2}"
+VM2_VMID="${VM2_VMID:-201}"
 VM2_IP="${VM2_IP:-192.168.1.11}"
 VM3_NAME="${VM3_NAME:-ceph-node3}"
+VM3_VMID="${VM3_VMID:-202}"
 VM3_IP="${VM3_IP:-192.168.1.12}"
 VM4_NAME="${VM4_NAME:-ceph-node4}"
+VM4_VMID="${VM4_VMID:-203}"
 VM4_IP="${VM4_IP:-192.168.1.13}"
 
 echo "Generating inventory for:"
@@ -125,11 +129,6 @@ for i in $(seq 1 $NUM_VMS); do
     eval "VM_NAME=\$VM${i}_NAME"
     eval "VM_VMID=\$VM${i}_VMID"
     eval "FALLBACK_IP=\$VM${i}_IP"
-
-    # Calculate VMID if not set
-    if [ -z "$VM_VMID" ]; then
-        VM_VMID=$((199 + i))
-    fi
 
     # Try to detect IP from Proxmox
     DETECTED_IP=$(get_vm_ip "$VM_NAME" "$VM_VMID")
