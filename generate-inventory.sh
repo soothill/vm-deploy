@@ -43,8 +43,12 @@ fi
 PROXMOX_API_HOST="${PROXMOX_API_HOST:-proxmox.example.com}"
 PROXMOX_API_USER="${PROXMOX_API_USER:-root@pam}"
 PROXMOX_API_PASSWORD="${PROXMOX_API_PASSWORD:-}"
-PROXMOX_NODE="${PROXMOX_NODE:-pve}"
 PROXMOX_SSH_USER="${PROXMOX_SSH_USER:-root}"
+
+# Auto-detect node name if not set
+if [ -z "$PROXMOX_NODE" ]; then
+    PROXMOX_NODE=$(ssh -o ConnectTimeout=3 "$PROXMOX_SSH_USER@$PROXMOX_API_HOST" "hostname" 2>/dev/null || echo "pve")
+fi
 PROXMOX_SSH_KEY="${DEFAULT_SSH_KEY}"
 VM_SSH_USER="${VM_SSH_USER:-root}"
 VM_ROOT_PASSWORD="${VM_ROOT_PASSWORD:-opensuse}"
