@@ -91,6 +91,7 @@ cat > "$VMS_INVENTORY" << EOF
 EOF
 
 echo "Detecting VM IP addresses from Proxmox..."
+echo ""
 
 # Function to get VM IP from Proxmox
 get_vm_ip() {
@@ -131,15 +132,16 @@ for i in $(seq 1 $NUM_VMS); do
     eval "FALLBACK_IP=\$VM${i}_IP"
 
     # Try to detect IP from Proxmox
+    echo -n "  ${VM_NAME} (VMID: ${VM_VMID}): "
     DETECTED_IP=$(get_vm_ip "$VM_NAME" "$VM_VMID")
 
     # Use detected IP or fall back to configured IP
     if [ -n "$DETECTED_IP" ] && [ "$DETECTED_IP" != "." ]; then
         VM_IP="$DETECTED_IP"
-        echo "  ${VM_NAME}: ${DETECTED_IP} (detected)"
+        echo "${DETECTED_IP} (detected via guest-agent)"
     else
         VM_IP="$FALLBACK_IP"
-        echo "  ${VM_NAME}: ${FALLBACK_IP} (using configured IP - VM not running or guest agent not available)"
+        echo "${FALLBACK_IP} (fallback - unable to detect)"
     fi
 
     echo "$VM_NAME ansible_host=$VM_IP" >> "$VMS_INVENTORY"
