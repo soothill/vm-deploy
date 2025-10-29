@@ -196,10 +196,33 @@ systemctl enable import-github-keys.service
 # Use traditional network interface names (eth0, eth1)
 # Already set in kernel command line: net.ifnames=0 biosdevname=0
 
-# Configure NetworkManager to use DHCP by default
+# Configure NetworkManager to use DHCP and manage DNS
 cat > /etc/NetworkManager/conf.d/dhcp.conf <<EOF
 [main]
 dhcp=dhclient
+dns=default
+rc-manager=file
+
+[connection]
+# Ensure DNS from DHCP is used
+ipv4.dns-priority=100
+ipv6.dns-priority=100
+EOF
+
+# Ensure NetworkManager manages /etc/resolv.conf
+rm -f /etc/resolv.conf
+ln -sf /run/NetworkManager/resolv.conf /etc/resolv.conf
+
+# Configure dhclient to request DNS servers
+cat > /etc/dhcp/dhclient.conf <<EOF
+# Request DNS information from DHCP server
+option rfc3442-classless-static-routes code 121 = array of unsigned integer 8;
+send host-name = gethostname();
+request subnet-mask, broadcast-address, time-offset, routers,
+        domain-name, domain-name-servers, domain-search, host-name,
+        dhcp6.name-servers, dhcp6.domain-search, dhcp6.fqdn, dhcp6.sntp-servers,
+        netbios-name-servers, netbios-scope, interface-mtu,
+        rfc3442-classless-static-routes, ntp-servers;
 EOF
 
 #======================================
@@ -318,6 +341,9 @@ system_info:
 # Network configuration
 network:
   config: disabled
+
+# DNS configuration - let NetworkManager handle it via DHCP
+manage_resolv_conf: false
 
 # Package management
 package_upgrade: false
