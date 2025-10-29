@@ -108,7 +108,16 @@ if [ -n "${OPENSUSE_IMAGE_PATH}" ] && [[ "${OPENSUSE_IMAGE_PATH}" == */ ]]; then
     echo "  /var/lib/vz/template/iso/"
     echo "  /wdred/iso/template/"
     echo ""
-    echo "Please update your .env file with the correct full path."
+    echo "To fix this issue:"
+    echo ""
+    echo "Option 1: Manually edit your .env file"
+    echo "  nano .env"
+    echo "  # Change OPENSUSE_IMAGE_PATH to include the full filename"
+    echo ""
+    echo "Option 2: Use make update-env to safely merge new .env.example settings"
+    echo "  make update-env"
+    echo "  # This preserves your existing values and adds new required variables"
+    echo ""
     echo "=========================================="
     exit 1
 fi
