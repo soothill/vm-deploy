@@ -8,6 +8,9 @@
 -include .env
 export
 
+# Ensure Python user bin is in PATH (for ansible-playbook)
+export PATH := $(HOME)/Library/Python/3.13/bin:$(HOME)/.local/bin:$(PATH)
+
 # Default target
 .DEFAULT_GOAL := help
 

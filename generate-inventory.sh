@@ -26,10 +26,23 @@ else
     echo -e "${YELLOW}!${NC} No .env file found. Using existing environment variables or defaults."
 fi
 
+# Auto-detect SSH key if not set
+if [ -z "$PROXMOX_SSH_KEY" ]; then
+    if [ -f "$HOME/.ssh/id_ed25519" ]; then
+        DEFAULT_SSH_KEY="$HOME/.ssh/id_ed25519"
+    elif [ -f "$HOME/.ssh/id_rsa" ]; then
+        DEFAULT_SSH_KEY="$HOME/.ssh/id_rsa"
+    else
+        DEFAULT_SSH_KEY="~/.ssh/id_rsa"
+    fi
+else
+    DEFAULT_SSH_KEY="$PROXMOX_SSH_KEY"
+fi
+
 # Set defaults
 PROXMOX_API_HOST="${PROXMOX_API_HOST:-proxmox.example.com}"
 PROXMOX_SSH_USER="${PROXMOX_SSH_USER:-root}"
-PROXMOX_SSH_KEY="${PROXMOX_SSH_KEY:-~/.ssh/id_rsa}"
+PROXMOX_SSH_KEY="${DEFAULT_SSH_KEY}"
 VM_SSH_USER="${VM_SSH_USER:-root}"
 VM_ROOT_PASSWORD="${VM_ROOT_PASSWORD:-opensuse}"
 NUM_VMS="${NUM_VMS:-4}"
