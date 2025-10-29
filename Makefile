@@ -25,10 +25,9 @@ RED := \033[0;31m
 NC := \033[0m # No Color
 
 # Ansible variables
-# Auto-detect ansible installation location
-ANSIBLE_BIN := $(shell command -v ansible-playbook 2>/dev/null || echo "$(HOME)/Library/Python/3.13/bin/ansible-playbook")
-ANSIBLE_CMD := $(shell command -v ansible 2>/dev/null || echo "$(HOME)/Library/Python/3.13/bin/ansible")
-ANSIBLE := $(ANSIBLE_BIN)
+# Use ansible from PATH (works on all platforms if ansible is installed properly)
+ANSIBLE := ansible-playbook
+ANSIBLE_CMD := ansible
 INVENTORY := inventory.ini
 VM_INVENTORY := inventory-vms.ini
 DEPLOY_PLAYBOOK := deploy-vms.yml
