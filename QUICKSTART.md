@@ -1,5 +1,9 @@
 # Quick Start Guide
 
+<!-- Copyright (c) 2025 Darren Soothill -->
+<!-- Email: darren [at] soothill [dot] com -->
+<!-- License: MIT -->
+
 ## Super Simple: All-in-One Command
 
 ```bash

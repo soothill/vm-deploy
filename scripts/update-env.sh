@@ -1,4 +1,8 @@
 #!/bin/bash
+#
+# Copyright (c) 2025 Darren Soothill
+# Email: darren [at] soothill [dot] com
+# License: MIT
 set -e
 
 # Update .env with new variables from .env.example

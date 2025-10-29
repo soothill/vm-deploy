@@ -1,5 +1,9 @@
 # Architecture and Design Decisions
 
+<!-- Copyright (c) 2025 Darren Soothill -->
+<!-- Email: darren [at] soothill [dot] com -->
+<!-- License: MIT -->
+
 ## Overview
 
 This project deploys OpenSUSE VMs on Proxmox for a Ceph cluster using Ansible, KIWI image builder, and a **hybrid approach** combining Proxmox API and CLI commands.

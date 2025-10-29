@@ -1,4 +1,8 @@
 #!/bin/bash
+#
+# Copyright (c) 2025 Darren Soothill
+# Email: darren [at] soothill [dot] com
+# License: MIT
 set -e
 
 # Complete OpenSUSE Ceph Cluster Deployment Script

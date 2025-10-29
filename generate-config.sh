@@ -1,5 +1,9 @@
 #!/bin/bash
 # Generate vm_config.yml from environment variables
+#
+# Copyright (c) 2025 Darren Soothill
+# Email: darren [at] soothill [dot] com
+# License: MIT
 
 set -e
 

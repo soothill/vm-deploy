@@ -1,5 +1,9 @@
 # Proxmox API Usage Guide
 
+<!-- Copyright (c) 2025 Darren Soothill -->
+<!-- Email: darren [at] soothill [dot] com -->
+<!-- License: MIT -->
+
 This document explains how this project uses the Proxmox API and when SSH commands are still required.
 
 ## Overview: Hybrid Approach

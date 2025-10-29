@@ -1,5 +1,9 @@
 # OpenSUSE Ceph Cluster Deployment
 
+<!-- Copyright (c) 2025 Darren Soothill -->
+<!-- Email: darren [at] soothill [dot] com -->
+<!-- License: MIT -->
+
 Automated deployment of OpenSUSE VMs on Proxmox for Ceph storage cluster.
 
 **🚀 New here? Start with [QUICKSTART.md](QUICKSTART.md)**

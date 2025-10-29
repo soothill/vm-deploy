@@ -1,4 +1,8 @@
 ---
+# Copyright (c) 2025 Darren Soothill
+# Email: darren [at] soothill [dot] com
+# License: MIT
+#
 - name: Post-Deployment Configuration for OpenSUSE VMs
   hosts: ceph_nodes
   gather_facts: true
