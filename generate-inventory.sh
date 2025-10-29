@@ -98,6 +98,7 @@ cat > "$VMS_INVENTORY" << EOF
 EOF
 
 echo "Detecting VM IP addresses from Proxmox..."
+echo "  Using node: $PROXMOX_NODE"
 echo ""
 
 # Function to get VM IP from Proxmox
@@ -108,12 +109,14 @@ get_vm_ip() {
 
     # Try to get IP from qemu-guest-agent via Proxmox API
     # Use our Python script that calls the API directly
+    # Uncomment for debugging:
+    # echo "DEBUG: python3 $SCRIPT_DIR/scripts/proxmox_get_vm_ip.py $PROXMOX_API_HOST $PROXMOX_API_USER [password] $PROXMOX_NODE $vmid" >&2
     detected_ip=$(python3 "$SCRIPT_DIR/scripts/proxmox_get_vm_ip.py" \
         "$PROXMOX_API_HOST" \
         "$PROXMOX_API_USER" \
         "$PROXMOX_API_PASSWORD" \
         "$PROXMOX_NODE" \
-        "$vmid" 2>/dev/null || echo "")
+        "$vmid" 2>&1 || echo "")
 
     # If guest agent doesn't work, try MAC address lookup in ARP table
     if [ -z "$detected_ip" ]; then
