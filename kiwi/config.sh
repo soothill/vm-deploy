@@ -67,6 +67,16 @@ echo "root:${ROOT_PASSWORD}" | chpasswd
 echo "Default root password configured"
 
 #======================================
+# Create syslog user
+#--------------------------------------
+echo "Creating syslog user with sudo privileges..."
+# Create syslog user with home directory
+useradd -m -s /bin/bash -G wheel syslog
+# Set password (same as root by default)
+echo "syslog:${ROOT_PASSWORD}" | chpasswd
+echo "syslog user created and added to wheel group (sudo access)"
+
+#======================================
 # SSH Configuration
 #--------------------------------------
 # Enable SSH root login
@@ -260,6 +270,13 @@ system_info:
     sudo: ["ALL=(ALL) NOPASSWD:ALL"]
     shell: /bin/bash
     lock_passwd: false
+
+# Additional users (syslog user is pre-created in image)
+# The syslog user already exists with:
+# - Home directory: /home/syslog
+# - Groups: wheel (sudo access)
+# - Shell: /bin/bash
+# SSH keys will be imported via cloud-init user-data or import-github-keys.sh
 
 # SSH import configuration
 # To import SSH keys from GitHub, add to user-data:

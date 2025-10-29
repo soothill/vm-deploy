@@ -51,13 +51,28 @@
       when:
         - github_username is defined
         - github_username | length > 0
-      register: github_import
-      changed_when: "'Successfully imported' in github_import.stdout"
+      register: github_import_root
+      changed_when: "'Successfully imported' in github_import_root.stdout"
       failed_when: false
 
-    - name: Display GitHub SSH key import status
+    - name: Display GitHub SSH key import status for root
       ansible.builtin.debug:
-        msg: "{{ github_import.stdout_lines | default(['GitHub SSH key import skipped']) }}"
+        msg: "{{ github_import_root.stdout_lines | default(['GitHub SSH key import skipped for root']) }}"
+      when: github_username is defined and github_username | length > 0
+
+    - name: Import GitHub SSH keys for syslog user
+      ansible.builtin.shell: |
+        /usr/local/bin/import-github-keys.sh {{ github_username }} syslog
+      when:
+        - github_username is defined
+        - github_username | length > 0
+      register: github_import_syslog
+      changed_when: "'Successfully imported' in github_import_syslog.stdout"
+      failed_when: false
+
+    - name: Display GitHub SSH key import status for syslog
+      ansible.builtin.debug:
+        msg: "{{ github_import_syslog.stdout_lines | default(['GitHub SSH key import skipped for syslog']) }}"
       when: github_username is defined and github_username | length > 0
 
     - name: Install lldpd and avahi (if not in base image)
@@ -148,11 +163,15 @@
           
           Mon Disk (for Ceph MON):
           - /dev/sdf: {{ mon_disk_size | default('100G') }}
-          
+
+          Users with sudo access:
+          - root (password authentication + SSH keys)
+          - syslog (password authentication + SSH keys)
+
           {% if github_username is defined and github_username | length > 0 %}
-          GitHub SSH Keys: Imported for {{ github_username }}
+          GitHub SSH Keys: Imported for {{ github_username }} (root & syslog users)
           {% endif %}
-          
+
           System Updates: {{ zypper_update.changed | default(false) | ternary('Completed', 'Up to date') }}
           
           Ready for Ceph deployment!

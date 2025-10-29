@@ -101,6 +101,17 @@ Each VM includes:
 
 All disks are thin provisioned. Data/mon disks are unformatted for Ceph.
 
+### User Accounts
+
+Each VM has two users with sudo privileges:
+- **root**: Full administrative access
+- **syslog**: Standard user with sudo access (for automation/logging)
+
+Both users:
+- Have password authentication enabled (default: `opensuse`)
+- Can import SSH keys from GitHub (set `GITHUB_USERNAME` in `.env`)
+- Have passwordless sudo access via `wheel` group
+
 ## Troubleshooting
 
 ### API Permission Issues
