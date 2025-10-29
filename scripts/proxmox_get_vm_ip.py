@@ -9,7 +9,7 @@ from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 
-def get_vm_ip(host, user, password, node, vmid):
+def get_vm_ip(host, user, password, node, vmid, debug=False):
     """Get first non-loopback IPv4 address from VM guest agent"""
     base_url = f"https://{host}:8006/api2/json"
 
@@ -24,6 +24,8 @@ def get_vm_ip(host, user, password, node, vmid):
         ticket = auth_result['ticket']
         csrf_token = auth_result['CSRFPreventionToken']
     except Exception as e:
+        if debug:
+            print(f"Authentication failed: {e}", file=sys.stderr)
         return None
 
     # Get network interfaces from guest agent
@@ -50,14 +52,17 @@ def get_vm_ip(host, user, password, node, vmid):
                     if ip and not ip.startswith('127.') and ':' not in ip:
                         return ip
     except Exception as e:
+        if debug:
+            print(f"Failed to get network interfaces: {e}", file=sys.stderr)
+            print(f"URL: {interfaces_url}", file=sys.stderr)
         return None
 
     return None
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 6:
-        print("Usage: proxmox_get_vm_ip.py <host> <user> <password> <node> <vmid>", file=sys.stderr)
+    if len(sys.argv) < 6:
+        print("Usage: proxmox_get_vm_ip.py <host> <user> <password> <node> <vmid> [--debug]", file=sys.stderr)
         sys.exit(1)
 
     host = sys.argv[1]
@@ -65,10 +70,13 @@ if __name__ == '__main__':
     password = sys.argv[3]
     node = sys.argv[4]
     vmid = sys.argv[5]
+    debug = len(sys.argv) > 6 and sys.argv[6] == '--debug'
 
-    ip = get_vm_ip(host, user, password, node, vmid)
+    ip = get_vm_ip(host, user, password, node, vmid, debug=debug)
     if ip:
         print(ip)
         sys.exit(0)
     else:
+        if debug:
+            print("No IP address found", file=sys.stderr)
         sys.exit(1)
