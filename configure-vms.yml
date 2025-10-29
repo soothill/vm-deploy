@@ -24,6 +24,7 @@
       ansible.builtin.hostname:
         name: "{{ inventory_hostname }}"
       when: ansible_hostname != inventory_hostname
+      register: hostname_changed
 
     - name: Update /etc/hosts with correct hostname
       ansible.builtin.lineinfile:
@@ -31,6 +32,13 @@
         regexp: '^127\.0\.1\.1'
         line: "127.0.1.1 {{ inventory_hostname }}.local {{ inventory_hostname }}"
         state: present
+
+    - name: Restart avahi-daemon to reflect new hostname
+      ansible.builtin.systemd:
+        name: avahi-daemon
+        state: restarted
+      when: hostname_changed.changed
+      failed_when: false
 
     - name: Update all packages to latest version
       community.general.zypper:
