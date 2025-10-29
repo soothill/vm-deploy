@@ -289,6 +289,11 @@ disable_root: false
 ssh_pwauth: true
 preserve_hostname: false
 
+# SSH Configuration - preserve existing keys in image
+# Do not delete or reset authorized_keys files
+ssh_deletekeys: false
+ssh_genkeytypes: []
+
 # Default user configuration
 system_info:
   default_user:

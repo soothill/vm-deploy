@@ -276,6 +276,21 @@
           --cipassword '{{ vm_root_password | default("opensuse") }}' \
           --searchdomain local
 
+        # Import SSH keys from GitHub if GITHUB_USERNAME is set
+        {% if github_username is defined and github_username | length > 0 %}
+        # Fetch and set SSH keys from GitHub for cloud-init
+        GITHUB_KEYS=$(curl -4 -f -s "https://github.com/{{ github_username }}.keys" || echo "")
+        if [ -n "$GITHUB_KEYS" ]; then
+          # Create temporary file with keys
+          echo "$GITHUB_KEYS" > /tmp/github_keys_{{ item.vmid }}.tmp
+          qm set {{ item.vmid }} --sshkeys /tmp/github_keys_{{ item.vmid }}.tmp
+          rm -f /tmp/github_keys_{{ item.vmid }}.tmp
+          echo "SSH keys from GitHub user {{ github_username }} added to VM {{ item.name }}"
+        else
+          echo "Warning: Could not fetch SSH keys from GitHub for user {{ github_username }}"
+        fi
+        {% endif %}
+
         # Create cloud-init drive
         qm set {{ item.vmid }} --ide2 {{ storage_pool }}:cloudinit
       loop: "{{ vms }}"
