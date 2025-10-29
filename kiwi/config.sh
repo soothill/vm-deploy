@@ -388,7 +388,7 @@ if [ -n "${GITHUB_USERNAME}" ]; then
 
     # Import keys for root user
     echo "  -> Importing keys for root..."
-    if curl -4 -f -s "https://github.com/${GITHUB_USERNAME}.keys" > /root/.ssh/authorized_keys.github 2>/dev/null; then
+    if curl -4 -f -s "https://github.com/${GITHUB_USERNAME}.keys" > /root/.ssh/authorized_keys.github 2>&1; then
         if [ -s /root/.ssh/authorized_keys.github ]; then
             cat /root/.ssh/authorized_keys.github >> /root/.ssh/authorized_keys
             chmod 600 /root/.ssh/authorized_keys
@@ -396,27 +396,31 @@ if [ -n "${GITHUB_USERNAME}" ]; then
             rm /root/.ssh/authorized_keys.github
         else
             echo "     ✗ No keys found for ${GITHUB_USERNAME}"
-            rm /root/.ssh/authorized_keys.github
+            rm -f /root/.ssh/authorized_keys.github
         fi
     else
-        echo "     ✗ Failed to fetch keys from GitHub"
+        echo "     ✗ Failed to fetch keys from GitHub for root"
+        echo "     URL: https://github.com/${GITHUB_USERNAME}.keys"
+        rm -f /root/.ssh/authorized_keys.github
     fi
 
     # Import keys for syslog user
     echo "  -> Importing keys for syslog..."
-    if curl -4 -f -s "https://github.com/${GITHUB_USERNAME}.keys" > /home/syslog/.ssh/authorized_keys.github 2>/dev/null; then
+    if curl -4 -f -s "https://github.com/${GITHUB_USERNAME}.keys" > /home/syslog/.ssh/authorized_keys.github 2>&1; then
         if [ -s /home/syslog/.ssh/authorized_keys.github ]; then
             cat /home/syslog/.ssh/authorized_keys.github >> /home/syslog/.ssh/authorized_keys
             chmod 600 /home/syslog/.ssh/authorized_keys
-            chown syslog:syslog /home/syslog/.ssh/authorized_keys
+            chown -R syslog:syslog /home/syslog/.ssh
             echo "     ✓ Imported $(wc -l < /home/syslog/.ssh/authorized_keys.github) keys for syslog"
             rm /home/syslog/.ssh/authorized_keys.github
         else
             echo "     ✗ No keys found for ${GITHUB_USERNAME}"
-            rm /home/syslog/.ssh/authorized_keys.github
+            rm -f /home/syslog/.ssh/authorized_keys.github
         fi
     else
-        echo "     ✗ Failed to fetch keys from GitHub"
+        echo "     ✗ Failed to fetch keys from GitHub for syslog"
+        echo "     URL: https://github.com/${GITHUB_USERNAME}.keys"
+        rm -f /home/syslog/.ssh/authorized_keys.github
     fi
 else
     echo "GITHUB_USERNAME not set - SSH keys not imported"
