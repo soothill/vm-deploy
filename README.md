@@ -134,8 +134,19 @@ Enable thin provisioning: [ZFS_THIN_PROVISIONING.md](ZFS_THIN_PROVISIONING.md)
 ### "VM already exists"
 Run: `make cleanup-vms CONFIRM_DELETE=true && make deploy`
 
-### SSH connection fails
-Run: `make test-connection`
+### SSH connection fails / sshpass required
+```bash
+# Option 1: Install sshpass (quick fix)
+brew install hudochenkov/sshpass/sshpass  # macOS
+sudo apt install sshpass                  # Linux
+
+# Option 2: Use SSH keys (recommended)
+make copy-ssh-keys              # Copy your SSH key to VMs
+make switch-to-ssh-keys         # Update inventory to use keys
+
+# Then configure VMs
+make configure
+```
 
 ### Image not found
 Build it: `make deploy-build-vm && make build-image-remote`

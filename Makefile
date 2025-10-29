@@ -437,6 +437,36 @@ test-vm-connection: check-env ## Test connection to deployed VMs
 	@$(ANSIBLE_CMD) -i $(VM_INVENTORY) ceph_nodes -m ping $(ANSIBLE_OPTS)
 	@$(ECHO) "$(GREEN)VM connections successful!$(NC)"
 
+copy-ssh-keys: check-env ## Copy your SSH keys to all VMs (requires sshpass or manual password entry)
+	@$(ECHO) "$(BLUE)Copying SSH keys to VMs...$(NC)"
+	@$(ECHO) "$(YELLOW)This will prompt for the VM password for each host$(NC)"
+	@$(ECHO) "$(YELLOW)Default password: opensuse$(NC)"
+	@echo ""
+	@. .env && \
+	for i in $$(seq 1 $${NUM_VMS:-4}); do \
+		eval "VM_NAME=\$$VM$${i}_NAME"; \
+		eval "VM_VMID=\$$VM$${i}_VMID"; \
+		VM_IP=$$(grep "$$VM_NAME" inventory-vms.ini | awk '{print $$2}' | cut -d= -f2); \
+		if [ -n "$$VM_IP" ]; then \
+			printf '%b\n' "$(GREEN)Copying SSH key to $$VM_NAME ($$VM_IP)...$(NC)"; \
+			ssh-copy-id -o StrictHostKeyChecking=no root@$$VM_IP || true; \
+		fi; \
+	done
+	@echo ""
+	@$(ECHO) "$(GREEN)SSH keys copied!$(NC)"
+	@$(ECHO) "$(YELLOW)Now update inventory-vms.ini to use keys instead of password:$(NC)"
+	@echo "  1. Comment out: ansible_ssh_pass=..."
+	@echo "  2. Uncomment: ansible_ssh_private_key_file=~/.ssh/id_rsa"
+	@echo ""
+	@echo "Or run: make switch-to-ssh-keys"
+
+switch-to-ssh-keys: check-env ## Switch inventory to use SSH keys instead of password
+	@$(ECHO) "$(BLUE)Switching inventory to use SSH keys...$(NC)"
+	@sed -i.bak 's/^ansible_ssh_pass=/#ansible_ssh_pass=/' inventory-vms.ini
+	@sed -i.bak 's/^# ansible_ssh_private_key_file=/ansible_ssh_private_key_file=/' inventory-vms.ini
+	@$(ECHO) "$(GREEN)Switched to SSH key authentication!$(NC)"
+	@$(ECHO) "$(YELLOW)Backup saved to: inventory-vms.ini.bak$(NC)"
+
 check-syntax: ## Check Ansible playbook syntax
 	@$(ECHO) "$(BLUE)Checking playbook syntax...$(NC)"
 	@$(ANSIBLE) --syntax-check -i $(INVENTORY) $(DEPLOY_PLAYBOOK)
