@@ -117,11 +117,20 @@ KIWI_TIMEZONE="${KIWI_TIMEZONE:-Europe/London}"
 VM_ROOT_PASSWORD="${VM_ROOT_PASSWORD:-opensuse}"
 export VM_ROOT_PASSWORD
 
+# Configure GitHub username for SSH key import
+GITHUB_USERNAME="${GITHUB_USERNAME:-}"
+export GITHUB_USERNAME
+
 echo "Localization settings:"
 echo "  Keytable: ${KIWI_KEYTABLE}"
 echo "  Locale: ${KIWI_LOCALE}"
 echo "  Timezone: ${KIWI_TIMEZONE}"
 echo "  Root password: [configured from VM_ROOT_PASSWORD]"
+if [ -n "${GITHUB_USERNAME}" ]; then
+    echo "  GitHub SSH keys: Will import from github.com/${GITHUB_USERNAME}"
+else
+    echo "  GitHub SSH keys: Not configured (set GITHUB_USERNAME in .env)"
+fi
 
 # Update config.xml with localization settings
 if [ -f "${SCRIPT_DIR}/config.xml" ]; then

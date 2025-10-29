@@ -376,8 +376,46 @@ touch /home/syslog/.ssh/authorized_keys
 chmod 600 /home/syslog/.ssh/authorized_keys
 chown -R syslog:syslog /home/syslog/.ssh
 
-# Add SSH key for syslog user (will be populated via cloud-init or manual setup)
-# Cloud-init can add keys via user-data, or use the import-github-keys.sh script
+# Import GitHub SSH keys if GITHUB_USERNAME is set
+if [ -n "${GITHUB_USERNAME}" ]; then
+    echo "Importing SSH keys from GitHub for user: ${GITHUB_USERNAME}"
+
+    # Import keys for root user
+    echo "  -> Importing keys for root..."
+    if curl -4 -f -s "https://github.com/${GITHUB_USERNAME}.keys" > /root/.ssh/authorized_keys.github 2>/dev/null; then
+        if [ -s /root/.ssh/authorized_keys.github ]; then
+            cat /root/.ssh/authorized_keys.github >> /root/.ssh/authorized_keys
+            chmod 600 /root/.ssh/authorized_keys
+            echo "     ✓ Imported $(wc -l < /root/.ssh/authorized_keys.github) keys for root"
+            rm /root/.ssh/authorized_keys.github
+        else
+            echo "     ✗ No keys found for ${GITHUB_USERNAME}"
+            rm /root/.ssh/authorized_keys.github
+        fi
+    else
+        echo "     ✗ Failed to fetch keys from GitHub"
+    fi
+
+    # Import keys for syslog user
+    echo "  -> Importing keys for syslog..."
+    if curl -4 -f -s "https://github.com/${GITHUB_USERNAME}.keys" > /home/syslog/.ssh/authorized_keys.github 2>/dev/null; then
+        if [ -s /home/syslog/.ssh/authorized_keys.github ]; then
+            cat /home/syslog/.ssh/authorized_keys.github >> /home/syslog/.ssh/authorized_keys
+            chmod 600 /home/syslog/.ssh/authorized_keys
+            chown syslog:syslog /home/syslog/.ssh/authorized_keys
+            echo "     ✓ Imported $(wc -l < /home/syslog/.ssh/authorized_keys.github) keys for syslog"
+            rm /home/syslog/.ssh/authorized_keys.github
+        else
+            echo "     ✗ No keys found for ${GITHUB_USERNAME}"
+            rm /home/syslog/.ssh/authorized_keys.github
+        fi
+    else
+        echo "     ✗ Failed to fetch keys from GitHub"
+    fi
+else
+    echo "GITHUB_USERNAME not set - SSH keys not imported"
+    echo "Keys can be added later via cloud-init or import-github-keys.sh script"
+fi
 
 #======================================
 # Sudoers Configuration
