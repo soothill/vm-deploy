@@ -95,22 +95,25 @@ get_vm_ip() {
     local detected_ip=""
 
     # Try to get IP from qemu-guest-agent
-    detected_ip=$(ssh -o ConnectTimeout=5 "$PROXMOX_SSH_USER@$PROXMOX_API_HOST" \
+    # The output is JSON with ip-address fields, we want IPv4 addresses only (not 127.0.0.1 or IPv6)
+    detected_ip=$(ssh -o ConnectTimeout=5 -o BatchMode=yes "$PROXMOX_SSH_USER@$PROXMOX_API_HOST" \
         "qm guest cmd $vmid network-get-interfaces 2>/dev/null | \
-         grep -o '\"ip-address\":\"[0-9][0-9.]*\"' | \
-         grep -o '[0-9][0-9.]*' | \
-         grep -v '127.0.0.1' | \
-         grep -v ':' | \
+         grep -oE '\"ip-address\":\"[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\"' | \
+         grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | \
+         grep -v '^127\.' | \
          head -1" 2>/dev/null || echo "")
 
-    # If guest agent doesn't work, try MAC address lookup
-    if [ -z "$detected_ip" ] || [ "$detected_ip" = "." ]; then
-        local mac=$(ssh -o ConnectTimeout=5 "$PROXMOX_SSH_USER@$PROXMOX_API_HOST" \
-            "qm config $vmid | grep -o 'net0:.*' | grep -o '[0-9A-Fa-f:]\{17\}' | head -1" 2>/dev/null || echo "")
+    # If guest agent doesn't work, try MAC address lookup in ARP table
+    if [ -z "$detected_ip" ]; then
+        local mac=$(ssh -o ConnectTimeout=5 -o BatchMode=yes "$PROXMOX_SSH_USER@$PROXMOX_API_HOST" \
+            "qm config $vmid 2>/dev/null | \
+             grep -E 'net[0-9]:' | \
+             grep -oE '[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}' | \
+             head -1" 2>/dev/null || echo "")
 
         if [ -n "$mac" ]; then
-            detected_ip=$(ssh -o ConnectTimeout=5 "$PROXMOX_SSH_USER@$PROXMOX_API_HOST" \
-                "ip neigh show | grep -i '$mac' | grep -o '[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}' | head -1" 2>/dev/null || echo "")
+            detected_ip=$(ssh -o ConnectTimeout=5 -o BatchMode=yes "$PROXMOX_SSH_USER@$PROXMOX_API_HOST" \
+                "ip neigh show | grep -i '$mac' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1" 2>/dev/null || echo "")
         fi
     fi
 
