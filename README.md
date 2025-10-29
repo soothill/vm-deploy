@@ -34,11 +34,34 @@ make configure
 ## Prerequisites
 
 - **Ansible 2.9+** (on your machine)
-- **SSH access to Proxmox** (passwordless keys)
+- **Proxmox access** (choose one):
+  - **API Token** (recommended) - For monitoring and IP detection
+  - **SSH Keys** - Required for deployment (disk operations)
 - **Proxmox VE** (any recent version)
 - **Thin provisioning enabled** (see [ZFS_THIN_PROVISIONING.md](ZFS_THIN_PROVISIONING.md))
 
-No Python libraries needed on Proxmox!
+### Authentication Setup
+
+This project uses a **hybrid approach**: Proxmox API for monitoring, SSH for deployment.
+
+**Quick setup:**
+```bash
+# 1. Create API token in Proxmox (recommended)
+# Datacenter → Permissions → API Tokens → Add
+# Token ID: deployment
+
+# 2. Configure in .env
+export PROXMOX_API_USER="root@pam!deployment"
+export PROXMOX_API_PASSWORD="your-token-secret"
+
+# 3. Grant permissions
+make fix-token
+
+# 4. Setup SSH keys (required for deployment)
+ssh-copy-id root@proxmox.local
+```
+
+See [API_USAGE.md](API_USAGE.md) for detailed authentication guide.
 
 ## Essential Commands
 
@@ -46,6 +69,8 @@ No Python libraries needed on Proxmox!
 make deploy                          # Deploy VMs (auto-generates configs)
 make configure                       # Configure VMs (optional)
 make cleanup-vms CONFIRM_DELETE=true # Remove VMs
+make check-token                     # Check API token permissions
+make fix-token                       # Fix API token permissions
 make list-vms                        # List VMs
 make help                            # Show all commands
 ```
@@ -74,6 +99,20 @@ All disks are thin provisioned. Data/mon disks are unformatted for Ceph.
 
 ## Troubleshooting
 
+### API Permission Issues
+```bash
+# Check API token permissions
+make check-token
+
+# Fix missing permissions
+make fix-token
+
+# Test API access
+source .env && python3 scripts/proxmox_get_vm_ip.py \
+  "$PROXMOX_API_HOST" "$PROXMOX_API_USER" "$PROXMOX_API_PASSWORD" \
+  "$PROXMOX_NODE" 310 --debug
+```
+
 ### "Out of space" on ZFS
 Enable thin provisioning: [ZFS_THIN_PROVISIONING.md](ZFS_THIN_PROVISIONING.md)
 
@@ -86,14 +125,17 @@ Run: `make test-connection`
 ### Image not found
 Build it: `make deploy-build-vm && make build-image-remote`
 
+See [API_USAGE.md](API_USAGE.md) for comprehensive troubleshooting.
+
 ## Documentation
 
 ### Start Here
 - **[QUICKSTART.md](QUICKSTART.md)** - Complete walkthrough
+- **[API_USAGE.md](API_USAGE.md)** - API vs SSH authentication guide
 - **[ZFS_THIN_PROVISIONING.md](ZFS_THIN_PROVISIONING.md)** - Required for ZFS users!
 
 ### Reference
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Why CLI instead of API
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Hybrid API/CLI design decisions
 - **[CLEANUP_GUIDE.md](CLEANUP_GUIDE.md)** - Removal procedures
 - **[BUILD_VM_GUIDE.md](BUILD_VM_GUIDE.md)** - Build VM details
 - **[LINUX_DEPLOYMENT.md](LINUX_DEPLOYMENT.md)** - Cross-platform workflow

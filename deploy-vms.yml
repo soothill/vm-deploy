@@ -1,8 +1,21 @@
 ---
+# VM Deployment Playbook for Proxmox
+#
+# This playbook uses SSH + qm CLI commands for deployment because:
+# 1. qm importdisk has NO API equivalent - must use CLI
+# 2. Complex disk configurations are simpler via atomic qm set commands
+# 3. Storage type detection (pvesm status) is CLI-only
+#
+# For API-based operations (monitoring, IP detection), see:
+# - scripts/proxmox_get_vm_ip.py (uses Proxmox API)
+# - generate-inventory.sh (uses API for IP detection)
+#
+# See API_USAGE.md for detailed explanation of hybrid approach.
+
 - name: Deploy OpenSUSE Virtual Machines on Proxmox
   hosts: proxmox_host
   gather_facts: false
-  
+
   vars_files:
     - vars/vm_config.yml
 

@@ -1,14 +1,25 @@
 ---
+# VM Removal Playbook for Proxmox
+#
+# This playbook uses SSH + qm CLI commands for batch VM deletion.
+# While the Proxmox API supports VM deletion, using qm commands provides:
+# 1. Atomic batch operations (faster for multiple VMs)
+# 2. Consistent behavior with deployment playbook
+# 3. Better error messages from native tools
+#
+# For API-based single VM operations, see library/proxmox_api.py
+# See API_USAGE.md for detailed explanation of hybrid approach.
+
 - name: Remove OpenSUSE Virtual Machines from Proxmox
   hosts: proxmox_host
   gather_facts: false
-  
+
   vars_files:
     - vars/vm_config.yml
-  
+
   vars:
     confirm_deletion: false  # Set to true to actually delete VMs
-  
+
   tasks:
     - name: Safety check - require confirmation
       ansible.builtin.fail:

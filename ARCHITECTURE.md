@@ -2,56 +2,95 @@
 
 ## Overview
 
-This project deploys OpenSUSE VMs on Proxmox for a Ceph cluster using Ansible, KIWI image builder, and direct CLI commands.
+This project deploys OpenSUSE VMs on Proxmox for a Ceph cluster using Ansible, KIWI image builder, and a **hybrid approach** combining Proxmox API and CLI commands.
 
-## Key Design Decision: Pure CLI Approach
+## Key Design Decision: Hybrid API/CLI Approach
 
-**All Proxmox operations use `qm` CLI commands via SSH, not API-based Ansible modules.**
+**Operations use Proxmox API where practical, CLI commands where necessary.**
 
-### Why CLI Instead of API?
+### Why Hybrid Instead of Pure API?
 
-Originally, the project used `community.general.proxmox_kvm` Ansible module, but this approach had critical issues:
+Originally attempted pure API approach with `community.general.proxmox_kvm`, but Proxmox API has technical limitations:
 
-**Problems with API Approach:**
-1. Requires `proxmoxer` Python library installed on Proxmox host
-2. Requires `requests` Python library on Proxmox host
-3. Adds external dependencies to production server
-4. Installation requires pip/Python package management on Proxmox
-5. Version compatibility issues between Proxmox Python and module requirements
+**Proxmox API Limitations:**
+1. ❌ No `importdisk` API endpoint - **must use CLI**
+2. ❌ No storage type detection API - CLI is simpler
+3. ❌ Complex disk configuration requires multiple API calls - CLI is atomic
+4. ❌ Boot order and cloud-init device setup better via CLI
+5. ❌ Some operations require `proxmoxer` Python library on control machine
 
-**Benefits of CLI Approach:**
-1. ✅ Zero dependencies - `qm` is built into Proxmox
-2. ✅ Always available and version-matched to Proxmox
-3. ✅ Works immediately via SSH
-4. ✅ Better error messages from native tools
-5. ✅ Easier debugging (can test commands manually)
-6. ✅ More reliable for complex operations (disk management, networking)
-7. ✅ No library version conflicts
+**Hybrid Approach Benefits:**
+1. ✅ Use API for frequent operations (monitoring, IP detection, status)
+2. ✅ Use CLI for deployment (disk import, complex configs)
+3. ✅ Zero dependencies on Proxmox host
+4. ✅ API token authentication for monitoring (secure, auditable)
+5. ✅ SSH for one-time deployment (simpler, more reliable)
+6. ✅ Best of both worlds
+
+### Operations by Method
+
+**Proxmox API (via Python scripts):**
+- ✅ VM IP detection (`scripts/proxmox_get_vm_ip.py`)
+- ✅ Guest agent queries (`library/proxmox_api.py`)
+- ✅ VM status checks
+- ✅ Inventory generation
+- ✅ Start/stop/delete (when used standalone)
+
+**SSH + qm CLI (via Ansible):**
+- ⚠️ VM deployment (`qm create`, `qm importdisk`, `qm set`)
+- ⚠️ Disk import and configuration (no API equivalent)
+- ⚠️ Storage type detection (`pvesm status`)
+- ⚠️ Cloud-init device setup
+- ⚠️ Batch configuration operations
+
+See [API_USAGE.md](API_USAGE.md) for detailed explanation of when API vs CLI is used.
+
+### Authentication Methods
+
+**API Token (for monitoring):**
+```bash
+export PROXMOX_API_USER="root@pam!tokenid"
+export PROXMOX_API_PASSWORD="token-secret"
+```
+- Used by: IP detection, status checks, inventory generation
+- Benefits: Secure, granular permissions, revocable
+- Setup: `make fix-token`
+
+**SSH Keys (for deployment):**
+```bash
+export PROXMOX_SSH_USER="root"
+# SSH key auto-detected (~/.ssh/id_ed25519 or ~/.ssh/id_rsa)
+```
+- Used by: VM deployment, disk operations, image building
+- Benefits: Standard, reliable, no API limitations
+- Setup: `ssh-copy-id root@proxmox.local`
 
 ### Conversion History
 
-All playbooks have been converted from API to CLI:
-
-| Playbook | Original | Current | Commands Used |
-|----------|----------|---------|---------------|
-| deploy-vms.yml | proxmox_kvm | qm CLI | create, set, importdisk, start |
-| remove-vms.yml | proxmox_kvm | qm CLI | stop, destroy |
-| configure-vms.yml | N/A | Direct modules | Runs on VMs, not Proxmox |
+| Component | Method | Reason |
+|-----------|--------|--------|
+| IP Detection | API | Frequent operation, native guest agent API |
+| VM Status | API | Read-only, perfect for API |
+| VM Deployment | CLI | Disk import has no API equivalent |
+| VM Removal | CLI | Ansible playbook, batch operations |
+| Inventory Gen | API | Frequent, benefits from API speed |
 
 ## Architecture Components
 
 ### 1. Control Machine (Linux/Mac)
 - Runs Ansible playbooks
 - Stores configuration in `.env` file
-- Requires: Ansible, SSH access to Proxmox
-- **Does NOT** require proxmoxer or requests
+- Requires: Ansible, SSH access to Proxmox, Python 3 (for API scripts)
+- Python libraries: `requests` (for API client scripts only)
+- **Does NOT** require proxmoxer or Proxmox-specific libraries
 
 ### 2. Proxmox Host
 - Target for VM deployment
 - Stores VM images and disks
-- Requires: SSH access, standard Proxmox installation
-- **Does NOT** require Python libraries (proxmoxer, requests)
-- All operations via native `qm`, `pvesm`, `qm guest cmd` tools
+- Provides API endpoint: `https://proxmox.local:8006/api2/json`
+- Requires: SSH access (for deployment), API token (for monitoring)
+- **Does NOT** require Python libraries or additional packages
+- Operations via: Proxmox API (status/monitoring) and native `qm` CLI (deployment)
 
 ### 3. Build VM (Optional but Recommended)
 - Dedicated OpenSUSE VM for KIWI image building
@@ -67,39 +106,53 @@ All playbooks have been converted from API to CLI:
 ## Communication Flow
 
 ```
-┌─────────────────┐
-│ Control Machine │
-│ (Linux/Mac)     │
-│                 │
-│ - Ansible       │
-│ - .env config   │
-└────────┬────────┘
-         │ SSH
-         ├──────────────────────────────────┐
-         │                                  │
-         ▼                                  ▼
-┌────────────────────┐            ┌──────────────────┐
-│ Proxmox Host       │            │ Build VM         │
-│                    │            │ (OpenSUSE)       │
-│ Operations:        │            │                  │
-│ - qm create        │            │ - KIWI build     │
-│ - qm set           │            │ - Image transfer │
-│ - qm importdisk    │◄───────────┤                  │
-│ - qm start         │   Images   │                  │
-│ - qm stop          │            │                  │
-│ - qm destroy       │            └──────────────────┘
-│                    │
-│ Creates VMs:       │
-│ ┌──────────────┐   │
-│ │ Ceph Node 1  │   │
-│ │ (OpenSUSE)   │   │
-│ └──────────────┘   │
-│ ┌──────────────┐   │
-│ │ Ceph Node 2  │   │
-│ │ (OpenSUSE)   │   │
-│ └──────────────┘   │
-│      ...           │
-└────────────────────┘
+┌─────────────────────────┐
+│   Control Machine       │
+│   (Linux/Mac)           │
+│                         │
+│ - Ansible playbooks     │
+│ - Python API scripts    │
+│ - .env configuration    │
+└──────┬──────────┬───────┘
+       │ API      │ SSH
+       │ (HTTPS)  │
+       │          │
+       ▼          ▼
+┌──────────────────────────────────────┐
+│ Proxmox Host                         │
+│                                      │
+│ API Endpoint (Port 8006):            │
+│ ✅ GET /nodes/{node}/qemu/{vmid}/    │
+│    agent/network-get-interfaces      │
+│ ✅ GET /nodes/{node}/qemu/{vmid}/    │
+│    status/current                    │
+│ ✅ POST /nodes/{node}/qemu/{vmid}/   │
+│    status/start                      │
+│                                      │
+│ SSH Commands (Port 22):              │
+│ ⚠️  qm create (VM creation)          │
+│ ⚠️  qm importdisk (no API)           │
+│ ⚠️  qm set (complex configs)         │
+│ ⚠️  pvesm status (storage detect)    │
+│                    │                 │
+│                    │ Images          │
+│                    ▼                 │
+│          ┌──────────────────┐        │
+│          │ Build VM         │        │
+│          │ (OpenSUSE)       │        │
+│          │                  │        │
+│          │ - KIWI builder   │        │
+│          │ - Image transfer │        │
+│          └──────────────────┘        │
+│                                      │
+│ Deployed VMs:                        │
+│ ┌──────────────┐ ┌──────────────┐   │
+│ │ Ceph Node 1  │ │ Ceph Node 2  │   │
+│ │ (OpenSUSE)   │ │ (OpenSUSE)   │   │
+│ │ + qemu-agent │ │ + qemu-agent │   │
+│ └──────────────┘ └──────────────┘   │
+│      ...                             │
+└──────────────────────────────────────┘
 ```
 
 ## Storage Backend Support
@@ -170,20 +223,31 @@ make deploy
 
 ## Security Considerations
 
+### API Token Authentication
+- Recommended for monitoring and status operations
+- Token format: `root@pam!tokenid` with secret
+- Granular permissions via PVEVMAdmin role
+- Revocable without password changes
+- Separate audit trail from SSH operations
+- Setup: `make fix-token`
+
 ### SSH Key Authentication
-- All Proxmox access via SSH keys (no password)
-- Key path configured in `.env`
-- Same key used for Ansible and manual operations
+- Required for deployment operations (disk import, etc.)
+- All SSH access via keys (no password)
+- Key path auto-detected or configured in `.env`
+- Used for: VM deployment, image building, disk operations
 
 ### No Credentials in Git
 - `.env` file is gitignored
 - `.env.example` provides template
-- Each user maintains their own credentials
+- API tokens and SSH keys never committed
+- Each environment has separate credentials
 
 ### Minimal Dependencies
 - No Python libraries on Proxmox reduces attack surface
-- Only standard Proxmox tools used
-- All operations auditable via Proxmox logs
+- Only standard Proxmox tools used on host
+- API scripts run on control machine only
+- All operations auditable via Proxmox logs and API access logs
 
 ## Error Handling
 
@@ -227,6 +291,7 @@ Two methods for removing VMs:
 
 ### Control Machine (Where Ansible Runs)
 - Ansible 2.9+
+- Python 3 with `requests` library (for API scripts)
 - SSH client
 - GNU Make
 - Bash
@@ -234,7 +299,8 @@ Two methods for removing VMs:
 ### Proxmox Host
 - Proxmox VE (any recent version)
 - SSH server (standard)
-- **No additional Python libraries needed**
+- API endpoint enabled (default)
+- **No additional Python libraries needed on host**
 
 ### Build VM (Optional)
 - OpenSUSE Leap
@@ -243,11 +309,13 @@ Two methods for removing VMs:
 
 ### Deployed VMs
 - Python 3 (standard in OpenSUSE)
+- qemu-guest-agent (included in custom image)
 - Cloud-init (included in custom image)
 
 ## Related Documentation
 
 - [README.md](README.md) - Getting started guide
+- **[API_USAGE.md](API_USAGE.md)** - API vs CLI usage guide
 - [ZFS_THIN_PROVISIONING.md](ZFS_THIN_PROVISIONING.md) - Storage configuration
 - [CLEANUP_GUIDE.md](CLEANUP_GUIDE.md) - VM cleanup procedures
 - [LINUX_DEPLOYMENT.md](LINUX_DEPLOYMENT.md) - Cross-platform development
