@@ -103,7 +103,9 @@ get_vm_ip() {
     # The output is JSON with ip-address fields, we want IPv4 addresses only (not 127.0.0.1 or IPv6)
     detected_ip=$(ssh -o ConnectTimeout=5 -o BatchMode=yes "$PROXMOX_SSH_USER@$PROXMOX_API_HOST" \
         "qm guest cmd $vmid network-get-interfaces 2>/dev/null | \
-         sed -n 's/.*\"ip-address\":\"\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)\".*/\1/p' | \
+         tr -d '\n' | \
+         grep -o '\"ip-address\":\"[0-9.]*\"' | \
+         grep -o '[0-9]*\.[0-9]*\.[0-9]*\.[0-9]*' | \
          grep -v '^127\.' | \
          head -1" 2>/dev/null || echo "")
 
