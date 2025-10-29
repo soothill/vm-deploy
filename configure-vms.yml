@@ -33,11 +33,20 @@
         line: "127.0.1.1 {{ inventory_hostname }}.local {{ inventory_hostname }}"
         state: present
 
+    - name: Fix avahi-daemon hostname configuration
+      ansible.builtin.lineinfile:
+        path: /etc/avahi/avahi-daemon.conf
+        regexp: '^host-name-from-machine-id='
+        line: 'host-name-from-machine-id=no'
+        state: present
+      register: avahi_config_fixed
+      failed_when: false
+
     - name: Restart avahi-daemon to reflect new hostname
       ansible.builtin.systemd:
         name: avahi-daemon
         state: restarted
-      when: hostname_changed.changed
+      when: hostname_changed.changed or avahi_config_fixed.changed
       failed_when: false
 
     - name: Update all packages to latest version

@@ -223,7 +223,9 @@ EOF
 # Configure Avahi for mDNS/DNS-SD (service discovery)
 cat > /etc/avahi/avahi-daemon.conf <<EOF
 [server]
-host-name-from-machine-id=yes
+# Use system hostname instead of machine-id for mDNS advertising
+# This ensures hostname.local resolves correctly
+host-name-from-machine-id=no
 use-ipv4=yes
 use-ipv6=yes
 allow-interfaces=eth0,eth1
