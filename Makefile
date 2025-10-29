@@ -187,7 +187,7 @@ else
 	@echo "  - Remove and recreate ALL VMs"
 	@echo "  - All VM data will be LOST"
 	@echo ""
-	@echo "To proceed, run: $(GREEN)make fresh-start CONFIRM_DELETE=true$(NC)"
+	@$(ECHO) "To proceed, run: $(GREEN)make fresh-start CONFIRM_DELETE=true$(NC)"
 	@exit 1
 endif
 
@@ -206,7 +206,7 @@ build-image: ## Build OpenSUSE image on Proxmox host (legacy method)
 	@$(ECHO) "$(BLUE)Building OpenSUSE image on Proxmox host...$(NC)"
 	@echo "This will connect to Proxmox and run the KIWI build"
 	@if [ -z "$(PROXMOX_API_HOST)" ]; then \
-		echo "$(RED)ERROR: PROXMOX_API_HOST not set. Create .env file first.$(NC)"; \
+		printf '%b\n' "$(RED)ERROR: PROXMOX_API_HOST not set. Create .env file first.$(NC)"; \
 		exit 1; \
 	fi
 	@$(ECHO) "$(GREEN)Build configuration:$(NC)"
@@ -228,9 +228,9 @@ check-image: check-env ## Check if OpenSUSE image exists on Proxmox
 	@echo "  Path: $(OPENSUSE_IMAGE_PATH)"
 	@echo ""
 	@if ssh $(PROXMOX_SSH_USER)@$(PROXMOX_API_HOST) "test -f $(OPENSUSE_IMAGE_PATH)"; then \
-		echo "$(GREEN)✓ Image found at $(OPENSUSE_IMAGE_PATH)$(NC)"; \
+		printf '%b\n' "$(GREEN)✓ Image found at $(OPENSUSE_IMAGE_PATH)$(NC)"; \
 	else \
-		echo "$(RED)ERROR: Image not found at $(OPENSUSE_IMAGE_PATH)$(NC)"; \
+		printf '%b\n' "$(RED)ERROR: Image not found at $(OPENSUSE_IMAGE_PATH)$(NC)"; \
 		echo ""; \
 		echo "Options:"; \
 		echo "  1. Build image on dedicated build VM (recommended):"; \
@@ -267,14 +267,14 @@ build-vm-status: check-env ## Check build VM status
 	@$(ECHO) "$(BLUE)Checking build VM status...$(NC)"
 	@if [ -f build-vm/build-vm-ip.txt ]; then \
 		. build-vm/build-vm-ip.txt; \
-		echo "$(GREEN)Build VM Configuration:$(NC)"; \
+		printf '%b\n' "$(GREEN)Build VM Configuration:$(NC)"; \
 		echo "  VM ID: $(BUILD_VM_ID)"; \
 		echo "  VM Name: $(BUILD_VM_NAME)"; \
 		echo "  IP Address: $$BUILD_VM_IP"; \
 		echo ""; \
-		ssh $(PROXMOX_SSH_USER)@$(PROXMOX_API_HOST) "qm status $(BUILD_VM_ID)" || echo "$(RED)VM not found$(NC)"; \
+		ssh $(PROXMOX_SSH_USER)@$(PROXMOX_API_HOST) "qm status $(BUILD_VM_ID)" || printf '%b\n' "$(RED)VM not found$(NC)"; \
 	else \
-		echo "$(YELLOW)Build VM not deployed yet$(NC)"; \
+		printf '%b\n' "$(YELLOW)Build VM not deployed yet$(NC)"; \
 		echo "Run: make deploy-build-vm"; \
 	fi
 
@@ -293,7 +293,7 @@ detect-build-vm-ip: check-env ## Auto-detect and save build VM IP address
 	if ssh $(PROXMOX_SSH_USER)@$(PROXMOX_API_HOST) "qm status $$BUILD_VM_ID >/dev/null 2>&1"; then \
 		VM_STATUS=$$(ssh $(PROXMOX_SSH_USER)@$(PROXMOX_API_HOST) "qm status $$BUILD_VM_ID | awk '{print \$$2}'"); \
 		if [ "$$VM_STATUS" != "running" ]; then \
-			echo "$(YELLOW)Build VM $$BUILD_VM_ID is not running (status: $$VM_STATUS)$(NC)"; \
+			printf '%b\n' "$(YELLOW)Build VM $$BUILD_VM_ID is not running (status: $$VM_STATUS)$(NC)"; \
 			echo "Starting build VM..."; \
 			ssh $(PROXMOX_SSH_USER)@$(PROXMOX_API_HOST) "qm start $$BUILD_VM_ID"; \
 			echo "Waiting 60 seconds for VM to boot..."; \
@@ -303,23 +303,23 @@ detect-build-vm-ip: check-env ## Auto-detect and save build VM IP address
 		VM_MAC=$$(ssh $(PROXMOX_SSH_USER)@$(PROXMOX_API_HOST) "qm config $$BUILD_VM_ID | grep -o 'net0:.*' | grep -o '[0-9A-Fa-f:]\{17\}' | head -1"); \
 		BUILD_VM_IP=$$(ssh $(PROXMOX_SSH_USER)@$(PROXMOX_API_HOST) "qm guest cmd $$BUILD_VM_ID network-get-interfaces 2>/dev/null | grep -o '\"ip-address\":\"[0-9][0-9.]*\"' | grep -o '[0-9][0-9.]*' | grep -v '127.0.0.1' | grep -v ':' | head -1" || echo ""); \
 		if [ -n "$$BUILD_VM_IP" ] && [ "$$BUILD_VM_IP" != "." ]; then \
-			echo "$(GREEN)✓ Detected IP via guest agent: $$BUILD_VM_IP$(NC)"; \
+			printf '%b\n' "$(GREEN)✓ Detected IP via guest agent: $$BUILD_VM_IP$(NC)"; \
 		else \
 			BUILD_VM_IP=$$(ssh $(PROXMOX_SSH_USER)@$(PROXMOX_API_HOST) "ip neigh show | grep -i '$$VM_MAC' | grep -o '[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}' | head -1" || echo ""); \
 			if [ -n "$$BUILD_VM_IP" ]; then \
-				echo "$(GREEN)✓ Detected IP via ARP table: $$BUILD_VM_IP$(NC)"; \
+				printf '%b\n' "$(GREEN)✓ Detected IP via ARP table: $$BUILD_VM_IP$(NC)"; \
 			else \
 				BUILD_VM_IP=$$(ssh $(PROXMOX_SSH_USER)@$(PROXMOX_API_HOST) "grep -i '$$VM_MAC' /var/lib/misc/dnsmasq.leases 2>/dev/null | awk '{print \$$3}' | head -1" || echo ""); \
 				if [ -n "$$BUILD_VM_IP" ]; then \
-					echo "$(GREEN)✓ Detected IP via DHCP leases: $$BUILD_VM_IP$(NC)"; \
+					printf '%b\n' "$(GREEN)✓ Detected IP via DHCP leases: $$BUILD_VM_IP$(NC)"; \
 				fi; \
 			fi; \
 		fi; \
 		if [ -n "$$BUILD_VM_IP" ]; then \
 			echo "BUILD_VM_IP=$$BUILD_VM_IP" > build-vm/build-vm-ip.txt; \
-			echo "$(GREEN)✓ Saved to build-vm/build-vm-ip.txt$(NC)"; \
+			printf '%b\n' "$(GREEN)✓ Saved to build-vm/build-vm-ip.txt$(NC)"; \
 		else \
-			echo "$(RED)ERROR: Could not detect IP address$(NC)"; \
+			printf '%b\n' "$(RED)ERROR: Could not detect IP address$(NC)"; \
 			echo ""; \
 			echo "Tried: guest agent, ARP table (MAC: $$VM_MAC), DHCP leases"; \
 			echo ""; \
@@ -330,7 +330,7 @@ detect-build-vm-ip: check-env ## Auto-detect and save build VM IP address
 			exit 1; \
 		fi; \
 	else \
-		echo "$(RED)ERROR: Build VM $$BUILD_VM_ID does not exist$(NC)"; \
+		printf '%b\n' "$(RED)ERROR: Build VM $$BUILD_VM_ID does not exist$(NC)"; \
 		echo "Run: make deploy-build-vm"; \
 		exit 1; \
 	fi
@@ -338,10 +338,10 @@ detect-build-vm-ip: check-env ## Auto-detect and save build VM IP address
 ssh-build-vm: ## SSH into the build VM
 	@if [ -f build-vm/build-vm-ip.txt ]; then \
 		. build-vm/build-vm-ip.txt; \
-		echo "$(BLUE)Connecting to build VM at $$BUILD_VM_IP...$(NC)"; \
+		printf '%b\n' "$(BLUE)Connecting to build VM at $$BUILD_VM_IP...$(NC)"; \
 		ssh root@$$BUILD_VM_IP; \
 	else \
-		echo "$(RED)ERROR: Build VM not deployed$(NC)"; \
+		printf '%b\n' "$(RED)ERROR: Build VM not deployed$(NC)"; \
 		echo "Run: make deploy-build-vm"; \
 		exit 1; \
 	fi
@@ -447,21 +447,21 @@ endif
 status: ## Show current deployment status
 	@$(ECHO) "$(BLUE)=== Environment Status ===$(NC)"
 	@$(ECHO) "$(GREEN)Configuration:$(NC)"
-	@[ -f .env ] && echo "  .env: $(GREEN)exists$(NC)" || echo "  .env: $(RED)missing$(NC)"
-	@[ -f vars/vm_config.yml ] && echo "  vm_config.yml: $(GREEN)exists$(NC)" || echo "  vm_config.yml: $(RED)missing$(NC)"
-	@[ -f $(INVENTORY) ] && echo "  inventory.ini: $(GREEN)exists$(NC)" || echo "  inventory.ini: $(RED)missing$(NC)"
+	@[ -f .env ] && printf '%b\n' "  .env: $(GREEN)exists$(NC)" || printf '%b\n' "  .env: $(RED)missing$(NC)"
+	@[ -f vars/vm_config.yml ] && printf '%b\n' "  vm_config.yml: $(GREEN)exists$(NC)" || printf '%b\n' "  vm_config.yml: $(RED)missing$(NC)"
+	@[ -f $(INVENTORY) ] && printf '%b\n' "  inventory.ini: $(GREEN)exists$(NC)" || printf '%b\n' "  inventory.ini: $(RED)missing$(NC)"
 	@echo ""
 	@$(ECHO) "$(GREEN)Proxmox:$(NC)"
-	@[ -n "$(PROXMOX_API_HOST)" ] && echo "  Host: $(PROXMOX_API_HOST)" || echo "  Host: $(RED)not configured$(NC)"
-	@[ -n "$(PROXMOX_NODE)" ] && echo "  Node: $(PROXMOX_NODE)" || echo "  Node: $(RED)not configured$(NC)"
+	@[ -n "$(PROXMOX_API_HOST)" ] && echo "  Host: $(PROXMOX_API_HOST)" || printf '%b\n' "  Host: $(RED)not configured$(NC)"
+	@[ -n "$(PROXMOX_NODE)" ] && echo "  Node: $(PROXMOX_NODE)" || printf '%b\n' "  Node: $(RED)not configured$(NC)"
 	@echo ""
 	@$(ECHO) "$(GREEN)Storage:$(NC)"
-	@[ -n "$(STORAGE_POOL)" ] && echo "  Pool: $(STORAGE_POOL)" || echo "  Pool: $(RED)not configured$(NC)"
-	@[ -n "$(DATA_DISK_SIZE)" ] && echo "  Data disk size: $(DATA_DISK_SIZE)" || echo "  Data disk size: $(RED)not configured$(NC)"
+	@[ -n "$(STORAGE_POOL)" ] && echo "  Pool: $(STORAGE_POOL)" || printf '%b\n' "  Pool: $(RED)not configured$(NC)"
+	@[ -n "$(DATA_DISK_SIZE)" ] && echo "  Data disk size: $(DATA_DISK_SIZE)" || printf '%b\n' "  Data disk size: $(RED)not configured$(NC)"
 	@echo ""
 	@$(ECHO) "$(GREEN)Image:$(NC)"
-	@[ -n "$(OPENSUSE_IMAGE_PATH)" ] && echo "  Path: $(OPENSUSE_IMAGE_PATH)" || echo "  Path: $(RED)not configured$(NC)"
-	@[ -n "$(OPENSUSE_IMAGE_NAME)" ] && echo "  Name: $(OPENSUSE_IMAGE_NAME)" || echo "  Name: $(YELLOW)using default$(NC)"
+	@[ -n "$(OPENSUSE_IMAGE_PATH)" ] && echo "  Path: $(OPENSUSE_IMAGE_PATH)" || printf '%b\n' "  Path: $(RED)not configured$(NC)"
+	@[ -n "$(OPENSUSE_IMAGE_NAME)" ] && echo "  Name: $(OPENSUSE_IMAGE_NAME)" || printf '%b\n' "  Name: $(YELLOW)using default$(NC)"
 
 info: ## Show detailed configuration information
 	@$(ECHO) "$(BLUE)=== Deployment Configuration ===$(NC)"
@@ -491,7 +491,7 @@ info: ## Show detailed configuration information
 	@echo "  Number of VMs: $(NUM_VMS)"
 	@echo ""
 	@$(ECHO) "$(GREEN)GitHub Integration:$(NC)"
-	@[ -n "$(GITHUB_USERNAME)" ] && echo "  Username: $(GITHUB_USERNAME)" || echo "  Username: $(YELLOW)not configured$(NC)"
+	@[ -n "$(GITHUB_USERNAME)" ] && echo "  Username: $(GITHUB_USERNAME)" || printf '%b\n' "  Username: $(YELLOW)not configured$(NC)"
 
 clean: ## Clean up generated files
 	@$(ECHO) "$(YELLOW)Cleaning up generated files...$(NC)"
@@ -502,19 +502,19 @@ clean: ## Clean up generated files
 
 init: ## Initialize new deployment (create .env from example)
 	@if [ -f .env ]; then \
-		echo "$(YELLOW).env already exists. Skipping...$(NC)"; \
+		printf '%b\n' "$(YELLOW).env already exists. Skipping...$(NC)"; \
 	else \
-		echo "$(BLUE)Creating .env from .env.example...$(NC)"; \
+		printf '%b\n' "$(BLUE)Creating .env from .env.example...$(NC)"; \
 		cp .env.example .env; \
-		echo "$(GREEN).env created!$(NC)"; \
-		echo "$(YELLOW)Please edit .env with your configuration: make edit-env$(NC)"; \
+		printf '%b\n' "$(GREEN).env created!$(NC)"; \
+		printf '%b\n' "$(YELLOW)Please edit .env with your configuration: make edit-env$(NC)"; \
 	fi
 
 ##@ Internal Targets (not meant to be called directly)
 
 check-env: ## Check if required environment is set up
 	@if [ ! -f .env ]; then \
-		echo "$(RED)ERROR: .env file not found!$(NC)"; \
+		printf '%b\n' "$(RED)ERROR: .env file not found!$(NC)"; \
 		echo "Run 'make init' to create it from .env.example"; \
 		exit 1; \
 	fi
