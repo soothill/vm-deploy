@@ -6,10 +6,13 @@
 
 # Load environment variables from .env if it exists
 -include .env
-export
 
 # Ensure Python user bin is in PATH (for ansible-playbook)
-export PATH := $(HOME)/Library/Python/3.13/bin:$(HOME)/.local/bin:$(PATH)
+SHELL := /bin/bash
+PATH := $(HOME)/Library/Python/3.13/bin:$(HOME)/.local/bin:$(PATH)
+
+# Export all variables to subshells
+.EXPORT_ALL_VARIABLES:
 
 # Default target
 .DEFAULT_GOAL := help
@@ -22,7 +25,10 @@ RED := \033[0;31m
 NC := \033[0m # No Color
 
 # Ansible variables
-ANSIBLE := ansible-playbook
+# Auto-detect ansible installation location
+ANSIBLE_BIN := $(shell command -v ansible-playbook 2>/dev/null || echo "$(HOME)/Library/Python/3.13/bin/ansible-playbook")
+ANSIBLE_CMD := $(shell command -v ansible 2>/dev/null || echo "$(HOME)/Library/Python/3.13/bin/ansible")
+ANSIBLE := $(ANSIBLE_BIN)
 INVENTORY := inventory.ini
 VM_INVENTORY := inventory-vms.ini
 DEPLOY_PLAYBOOK := deploy-vms.yml
@@ -397,12 +403,12 @@ update-env: ## Update .env with new variables from .env.example
 
 test-connection: check-env ## Test connection to Proxmox host
 	@echo "$(BLUE)Testing connection to Proxmox host...$(NC)"
-	@ansible -i $(INVENTORY) proxmox_host -m ping $(ANSIBLE_OPTS)
+	@$(ANSIBLE_CMD) -i $(INVENTORY) proxmox_host -m ping $(ANSIBLE_OPTS)
 	@echo "$(GREEN)Connection successful!$(NC)"
 
 test-vm-connection: check-env ## Test connection to deployed VMs
 	@echo "$(BLUE)Testing connection to VMs...$(NC)"
-	@ansible -i $(VM_INVENTORY) ceph_nodes -m ping $(ANSIBLE_OPTS)
+	@$(ANSIBLE_CMD) -i $(VM_INVENTORY) ceph_nodes -m ping $(ANSIBLE_OPTS)
 	@echo "$(GREEN)VM connections successful!$(NC)"
 
 check-syntax: ## Check Ansible playbook syntax
