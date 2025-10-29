@@ -1,0 +1,258 @@
+---
+# Ceph Deployment Playbook
+#
+# Copyright (c) 2025 Darren Soothill
+# Email: darren [at] soothill [dot] com
+# License: MIT
+#
+# This playbook deploys a Ceph cluster on the OpenSUSE VMs using cephadm.
+# Prerequisites:
+# - VMs must be deployed and running (run deploy-vms.yml first)
+# - VMs must have Ceph packages pre-installed in the image
+# - Data disks (scsi1-4) and mon disk (scsi5) must be unformatted
+#
+# Usage:
+#   ansible-playbook -i inventory-vms.ini deploy-ceph.yml
+#
+# For manual deployment, see: docs/CEPH_DEPLOYMENT.md
+
+- name: Prepare Ceph Cluster Nodes
+  hosts: ceph_nodes
+  become: true
+  gather_facts: true
+
+  vars_files:
+    - vars/vm_config.yml
+
+  vars:
+    ceph_admin_node: "{{ groups['ceph_nodes'][0] }}"
+    ceph_version: "squid"  # Ceph Squid (19.2.x)
+
+  tasks:
+
+    - name: Verify Ceph packages are installed
+      ansible.builtin.command: rpm -q cephadm ceph-common podman
+      register: ceph_packages
+      changed_when: false
+      failed_when: false
+
+    - name: Display package verification
+      ansible.builtin.debug:
+        msg: "{{ ceph_packages.stdout_lines }}"
+
+    - name: Fail if required packages are missing
+      ansible.builtin.fail:
+        msg: |
+          ERROR: Required Ceph packages are not installed!
+
+          Missing packages detected. The KIWI image needs to be rebuilt with Ceph packages.
+
+          Steps to fix:
+          1. Rebuild the image: make build-image-remote
+          2. Redeploy VMs: make cleanup-vms CONFIRM_DELETE=true && make deploy
+          3. Try Ceph deployment again: make deploy-ceph
+      when: ceph_packages.rc != 0
+
+    - name: Ensure chronyd is running
+      ansible.builtin.systemd:
+        name: chronyd
+        state: started
+        enabled: true
+
+    - name: Check time synchronization
+      ansible.builtin.command: chronyc tracking
+      register: chrony_status
+      changed_when: false
+
+    - name: Display time sync status
+      ansible.builtin.debug:
+        msg: "{{ chrony_status.stdout_lines }}"
+
+    - name: Ensure podman is running
+      ansible.builtin.systemd:
+        name: podman
+        state: started
+        enabled: true
+
+    - name: Check available disks for Ceph
+      ansible.builtin.shell: |
+        lsblk -ndo NAME,SIZE,TYPE | grep disk | grep -v sda
+      register: available_disks
+      changed_when: false
+
+    - name: Display available disks
+      ansible.builtin.debug:
+        msg: |
+          Available disks for Ceph on {{ inventory_hostname }}:
+          {{ available_disks.stdout_lines }}
+
+- name: Bootstrap Ceph Cluster on Admin Node
+  hosts: "{{ groups['ceph_nodes'][0] }}"
+  become: true
+  gather_facts: true
+
+  vars_files:
+    - vars/vm_config.yml
+
+  vars:
+    ceph_version: "squid"
+    ceph_cluster_network: "{{ hostvars[inventory_hostname]['ansible_eth0']['ipv4']['network'] }}/{{ hostvars[inventory_hostname]['ansible_eth0']['ipv4']['netmask'] }}"
+    ceph_public_network: "{{ hostvars[inventory_hostname]['ansible_eth1']['ipv4']['network'] }}/{{ hostvars[inventory_hostname]['ansible_eth1']['ipv4']['netmask'] }}"
+
+  tasks:
+
+    - name: Check if Ceph cluster is already bootstrapped
+      ansible.builtin.stat:
+        path: /etc/ceph/ceph.conf
+      register: ceph_conf
+
+    - name: Bootstrap Ceph cluster
+      ansible.builtin.command: >
+        cephadm bootstrap
+        --mon-ip {{ ansible_eth0.ipv4.address }}
+        --cluster-network {{ ceph_cluster_network }}
+        --skip-monitoring-stack
+        --skip-dashboard
+        --single-host-defaults
+        --allow-fqdn-hostname
+      register: bootstrap_result
+      when: not ceph_conf.stat.exists
+      changed_when: true
+
+    - name: Display bootstrap result
+      ansible.builtin.debug:
+        msg: "{{ bootstrap_result.stdout_lines }}"
+      when: bootstrap_result is changed
+
+    - name: Wait for Ceph cluster to be ready
+      ansible.builtin.command: ceph status
+      register: ceph_status
+      until: ceph_status.rc == 0
+      retries: 12
+      delay: 10
+      changed_when: false
+      when: not ceph_conf.stat.exists
+
+    - name: Get Ceph cluster status
+      ansible.builtin.command: ceph status
+      register: ceph_status
+      changed_when: false
+
+    - name: Display Ceph cluster status
+      ansible.builtin.debug:
+        msg: "{{ ceph_status.stdout_lines }}"
+
+    - name: Save Ceph admin keyring for deployment
+      ansible.builtin.fetch:
+        src: /etc/ceph/ceph.client.admin.keyring
+        dest: /tmp/ceph.client.admin.keyring
+        flat: true
+      when: not ceph_conf.stat.exists
+
+    - name: Save Ceph public key for other nodes
+      ansible.builtin.fetch:
+        src: /etc/ceph/ceph.pub
+        dest: /tmp/ceph.pub
+        flat: true
+      when: not ceph_conf.stat.exists
+
+- name: Add Additional Nodes to Ceph Cluster
+  hosts: ceph_nodes
+  become: true
+  gather_facts: true
+
+  vars_files:
+    - vars/vm_config.yml
+
+  tasks:
+
+    - name: Skip admin node
+      ansible.builtin.meta: end_host
+      when: inventory_hostname == groups['ceph_nodes'][0]
+
+    - name: Copy Ceph public key to nodes
+      ansible.builtin.copy:
+        src: /tmp/ceph.pub
+        dest: /etc/ceph/ceph.pub
+        mode: '0644'
+
+    - name: Add host to Ceph cluster
+      ansible.builtin.command: >
+        ceph orch host add {{ inventory_hostname }} {{ ansible_eth0.ipv4.address }}
+      delegate_to: "{{ groups['ceph_nodes'][0] }}"
+      register: add_host_result
+      changed_when: "'Added host' in add_host_result.stdout"
+      failed_when: false
+
+    - name: Display host addition result
+      ansible.builtin.debug:
+        msg: "{{ add_host_result.stdout }}"
+
+- name: Configure Ceph OSDs
+  hosts: ceph_nodes
+  become: true
+  gather_facts: true
+
+  vars_files:
+    - vars/vm_config.yml
+
+  tasks:
+
+    - name: Get list of available devices
+      ansible.builtin.shell: |
+        ceph orch device ls --hostname={{ inventory_hostname }} --format=json
+      delegate_to: "{{ groups['ceph_nodes'][0] }}"
+      register: device_list
+      changed_when: false
+
+    - name: Add OSDs from available devices (scsi1-4)
+      ansible.builtin.shell: |
+        for device in /dev/sdb /dev/sdc /dev/sdd /dev/sde; do
+          if [ -b "$device" ]; then
+            ceph orch daemon add osd {{ inventory_hostname }}:$device || true
+          fi
+        done
+      delegate_to: "{{ groups['ceph_nodes'][0] }}"
+      register: osd_result
+      changed_when: "'Created osd' in osd_result.stdout"
+
+    - name: Display OSD creation result
+      ansible.builtin.debug:
+        msg: "{{ osd_result.stdout_lines }}"
+
+- name: Display Ceph Cluster Summary
+  hosts: "{{ groups['ceph_nodes'][0] }}"
+  become: true
+  gather_facts: false
+
+  tasks:
+
+    - name: Get final Ceph status
+      ansible.builtin.command: ceph -s
+      register: final_status
+      changed_when: false
+
+    - name: Get OSD tree
+      ansible.builtin.command: ceph osd tree
+      register: osd_tree
+      changed_when: false
+
+    - name: Display Ceph cluster summary
+      ansible.builtin.debug:
+        msg: |
+          ===============================================
+          Ceph Cluster Deployment Complete!
+          ===============================================
+
+          Cluster Status:
+          {{ final_status.stdout }}
+
+          OSD Tree:
+          {{ osd_tree.stdout }}
+
+          ===============================================
+          Next Steps:
+          1. Create Ceph pools: ceph osd pool create <pool-name> <pg-num>
+          2. Enable Ceph dashboard: ceph mgr module enable dashboard
+          3. Monitor cluster: ceph -w
+          ===============================================

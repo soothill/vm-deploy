@@ -40,6 +40,9 @@
     <repository type="rpm-md" alias="openSUSE-Leap-15.6-NonOSS">
         <source path="http://download.opensuse.org/distribution/leap/15.6/repo/non-oss/"/>
     </repository>
+    <repository type="rpm-md" alias="Ceph-Squid" priority="90">
+        <source path="https://download.opensuse.org/repositories/filesystems:/ceph:/squid/15.6/"/>
+    </repository>
     <packages type="image">
         <!-- Base System -->
         <package name="patterns-base-base"/>
@@ -125,6 +128,20 @@
         <!-- Man pages -->
         <package name="man"/>
         <package name="man-pages"/>
+
+        <!-- Ceph prerequisites and deployment tools -->
+        <package name="cephadm"/>
+        <package name="ceph-common"/>
+        <package name="podman"/>
+        <package name="python3-asyncssh"/>
+        <package name="python3-natsort"/>
+        <package name="python3-CherryPy"/>
+        <package name="python3-Jinja2"/>
+        <package name="chrony"/>
+
+        <!-- Container tools for Ceph -->
+        <package name="containernetworking-plugins"/>
+        <package name="conmon"/>
     </packages>
     <packages type="bootstrap">
         <package name="filesystem"/>

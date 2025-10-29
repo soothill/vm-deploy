@@ -104,6 +104,18 @@ configure: check-env ## Configure deployed VMs (updates, SSH keys, services)
 	@$(ANSIBLE) -i $(VM_INVENTORY) $(CONFIGURE_PLAYBOOK) $(ANSIBLE_OPTS)
 	@$(ECHO) "$(GREEN)VM configuration completed!$(NC)"
 
+deploy-ceph: check-env ## Deploy Ceph cluster on VMs
+	@$(ECHO) "$(BLUE)Deploying Ceph cluster...$(NC)"
+	@$(ECHO) "$(YELLOW)This will create a Ceph cluster on all deployed VMs$(NC)"
+	@$(ECHO) "$(YELLOW)Prerequisites: VMs must be deployed and running$(NC)"
+	@echo ""
+	@$(ANSIBLE) -i $(VM_INVENTORY) deploy-ceph.yml $(ANSIBLE_OPTS)
+	@$(ECHO) "$(GREEN)Ceph cluster deployment completed!$(NC)"
+	@echo ""
+	@$(ECHO) "$(BLUE)Ceph cluster is ready!$(NC)"
+	@echo "Access the admin node with: ssh root@<first-vm-ip>"
+	@echo "Check cluster status: ceph -s"
+
 remove: check-env ## Remove VMs from Proxmox (requires CONFIRM_DELETE=true)
 ifeq ($(CONFIRM_DELETE),true)
 	@$(ECHO) "$(RED)Removing VMs...$(NC)"

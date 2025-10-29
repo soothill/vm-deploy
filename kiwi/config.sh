@@ -45,6 +45,10 @@ systemctl enable cloud-final
 systemctl enable avahi-daemon
 systemctl enable lldpd
 
+# Ceph-related services
+systemctl enable chronyd
+systemctl enable podman
+
 # Disable unnecessary services
 systemctl disable firewalld
 systemctl mask firewalld
