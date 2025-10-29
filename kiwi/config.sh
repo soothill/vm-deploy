@@ -164,7 +164,7 @@ chmod +x /usr/local/bin/import-github-keys.sh
 # Create systemd service for GitHub key import on first boot
 cat > /etc/systemd/system/import-github-keys.service <<'EOFSERVICE'
 [Unit]
-Description=Import SSH keys from GitHub
+Description=Import SSH keys from GitHub for root and syslog users
 After=network-online.target
 Wants=network-online.target
 Before=sshd.service
@@ -172,7 +172,9 @@ ConditionPathExists=/etc/github-ssh-user
 
 [Service]
 Type=oneshot
+# Import keys for both root and syslog users
 ExecStart=/bin/bash -c '/usr/local/bin/import-github-keys.sh $(cat /etc/github-ssh-user) root'
+ExecStart=/bin/bash -c '/usr/local/bin/import-github-keys.sh $(cat /etc/github-ssh-user) syslog'
 ExecStartPost=/bin/rm -f /etc/github-ssh-user
 RemainAfterExit=yes
 StandardOutput=journal
@@ -182,7 +184,11 @@ StandardError=journal
 WantedBy=multi-user.target
 EOFSERVICE
 
+# Enable the service
+systemctl enable import-github-keys.service
+
 # Note: Create /etc/github-ssh-user with GitHub username to enable auto-import on first boot
+# Or use cloud-init to set this via user-data
 
 #======================================
 # Network Configuration
@@ -253,6 +259,25 @@ rlimit-nofile=768
 rlimit-stack=4194304
 rlimit-nproc=3
 EOF
+
+# Create systemd service to restart avahi-daemon after hostname changes
+# This ensures avahi advertises the correct hostname via mDNS
+cat > /etc/systemd/system/avahi-restart-after-hostname.service <<'EOFAVAHI'
+[Unit]
+Description=Restart Avahi daemon after hostname change
+After=cloud-final.service
+Wants=cloud-final.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl restart avahi-daemon
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOFAVAHI
+
+systemctl enable avahi-restart-after-hostname.service
 
 #======================================
 # Cloud-init Configuration
@@ -338,10 +363,31 @@ echo "Generating locales..."
 localectl set-locale LANG=en_GB.UTF-8 || true
 
 #======================================
+# User Configuration
+#--------------------------------------
+echo "Creating syslog user with sudo privileges..."
+# Create syslog user with home directory
+useradd -m -s /bin/bash -G wheel syslog || true
+
+# Set up SSH directory for syslog user
+mkdir -p /home/syslog/.ssh
+chmod 700 /home/syslog/.ssh
+touch /home/syslog/.ssh/authorized_keys
+chmod 600 /home/syslog/.ssh/authorized_keys
+chown -R syslog:syslog /home/syslog/.ssh
+
+# Add SSH key for syslog user (will be populated via cloud-init or manual setup)
+# Cloud-init can add keys via user-data, or use the import-github-keys.sh script
+
+#======================================
 # Sudoers Configuration
 #--------------------------------------
 echo "%wheel ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers.d/wheel
 chmod 0440 /etc/sudoers.d/wheel
+
+# Ensure syslog user has sudo access
+echo "syslog ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers.d/syslog
+chmod 0440 /etc/sudoers.d/syslog
 
 #======================================
 # Performance Tuning
