@@ -51,6 +51,13 @@ systemctl mask firewalld
 baseSetRunlevel multi-user.target
 
 #======================================
+# Set root password
+#--------------------------------------
+# Set default root password (can be changed via cloud-init or manually)
+echo "root:opensuse" | chpasswd
+echo "Default root password set to: opensuse"
+
+#======================================
 # SSH Configuration
 #--------------------------------------
 # Enable SSH root login
