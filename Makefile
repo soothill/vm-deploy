@@ -408,6 +408,12 @@ test-connection: check-env ## Test connection to Proxmox host
 	@$(ANSIBLE_CMD) -i $(INVENTORY) proxmox_host -m ping $(ANSIBLE_OPTS)
 	@$(ECHO) "$(GREEN)Connection successful!$(NC)"
 
+check-token: check-env ## Check Proxmox API token permissions
+	@./scripts/check-token-permissions.sh
+
+fix-token: check-env ## Add required permissions to Proxmox API token
+	@./scripts/fix-token-permissions.sh
+
 test-vm-connection: check-env ## Test connection to deployed VMs
 	@$(ECHO) "$(BLUE)Testing connection to VMs...$(NC)"
 	@$(ANSIBLE_CMD) -i $(VM_INVENTORY) ceph_nodes -m ping $(ANSIBLE_OPTS)
