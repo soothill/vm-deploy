@@ -1,5 +1,9 @@
 # Deployment from Linux Machine
 
+<!-- Copyright (c) 2025 Darren Soothill -->
+<!-- Email: darren [at] soothill [dot] com -->
+<!-- License: MIT -->
+
 This guide is for deploying from your Linux machine (`darren@syslog`) after developing on Mac.
 
 ## Prerequisites on Linux Machine

@@ -1,5 +1,9 @@
 ## Build VM Guide - Dedicated KIWI Image Builder
 
+<!-- Copyright (c) 2025 Darren Soothill -->
+<!-- Email: darren [at] soothill [dot] com -->
+<!-- License: MIT -->
+
 This guide explains how to use a dedicated OpenSUSE VM running on Proxmox for building KIWI images. This is the **RECOMMENDED** approach since KIWI works best on OpenSUSE.
 
 ## Why Use a Build VM?

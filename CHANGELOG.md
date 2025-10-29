@@ -1,5 +1,9 @@
 # CHANGELOG - Latest Updates
 
+<!-- Copyright (c) 2025 Darren Soothill -->
+<!-- Email: darren [at] soothill [dot] com -->
+<!-- License: MIT -->
+
 ## Version 2.0 - Enhanced Ceph Cluster Configuration
 
 ### Major Changes

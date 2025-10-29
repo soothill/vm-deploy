@@ -1,5 +1,9 @@
 # Image Configuration Guide
 
+<!-- Copyright (c) 2025 Darren Soothill -->
+<!-- Email: darren [at] soothill [dot] com -->
+<!-- License: MIT -->
+
 This guide explains how to configure custom image storage locations for the OpenSUSE KIWI-built image.
 
 ## Overview

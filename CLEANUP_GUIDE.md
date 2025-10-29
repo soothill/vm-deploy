@@ -1,5 +1,9 @@
 # VM Cleanup Guide
 
+<!-- Copyright (c) 2025 Darren Soothill -->
+<!-- Email: darren [at] soothill [dot] com -->
+<!-- License: MIT -->
+
 ## Quick Cleanup Commands
 
 ### Option 1: Fast Cleanup via SSH (Recommended)

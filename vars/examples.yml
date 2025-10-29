@@ -1,5 +1,9 @@
 ---
 # Example VM configurations for different storage scenarios
+#
+# Copyright (c) 2025 Darren Soothill
+# Email: darren [at] soothill [dot] com
+# License: MIT
 
 #===========================================
 # SCENARIO 1: All storage on local-lvm

@@ -1,5 +1,9 @@
 # Environment Configuration Management
 
+<!-- Copyright (c) 2025 Darren Soothill -->
+<!-- Email: darren [at] soothill [dot] com -->
+<!-- License: MIT -->
+
 This guide explains how to manage your `.env` configuration file, especially when updating to new versions of the project.
 
 ## Overview

@@ -1,5 +1,9 @@
 # ZFS Thin Provisioning Configuration
 
+<!-- Copyright (c) 2025 Darren Soothill -->
+<!-- Email: darren [at] soothill [dot] com -->
+<!-- License: MIT -->
+
 ## Problem
 
 When deploying VMs to ZFS storage, you may encounter "out of space" errors even when plenty of capacity is available. This happens because **ZFS in Proxmox does NOT thin provision by default** - it pre-allocates the full volume size.
