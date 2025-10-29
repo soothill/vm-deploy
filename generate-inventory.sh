@@ -101,17 +101,17 @@ get_vm_ip() {
 
     # Try to get IP from qemu-guest-agent
     # The output is JSON with ip-address fields, we want IPv4 addresses only (not 127.0.0.1 or IPv6)
-    # Use awk for maximum compatibility (works on busybox and full Linux)
+    # Use awk with simple regex matching for compatibility with older awk versions
     detected_ip=$(ssh -o ConnectTimeout=5 -o BatchMode=yes "$PROXMOX_SSH_USER@$PROXMOX_API_HOST" \
         'qm guest cmd '"$vmid"' network-get-interfaces 2>/dev/null | \
          awk '"'"'
-         /"ip-address"/ {
-             if (match($0, /"ip-address":"([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)"/, arr)) {
-                 ip = arr[1]
-                 if (ip !~ /^127\./) {
-                     print ip
-                     exit
-                 }
+         /"ip-address"/ && /"ip-address":"[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+"/ {
+             line = $0
+             sub(/.*"ip-address":"/, "", line)
+             sub(/".*/, "", line)
+             if (line !~ /^127\./ && line ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/) {
+                 print line
+                 exit
              }
          }'"'"' 2>/dev/null || echo "")
 
