@@ -103,8 +103,7 @@ get_vm_ip() {
     # The output is JSON with ip-address fields, we want IPv4 addresses only (not 127.0.0.1 or IPv6)
     detected_ip=$(ssh -o ConnectTimeout=5 -o BatchMode=yes "$PROXMOX_SSH_USER@$PROXMOX_API_HOST" \
         "qm guest cmd $vmid network-get-interfaces 2>/dev/null | \
-         grep -oE '\"ip-address\":\"[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\"' | \
-         grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | \
+         sed -n 's/.*\"ip-address\":\"\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)\".*/\1/p' | \
          grep -v '^127\.' | \
          head -1" 2>/dev/null || echo "")
 
@@ -112,13 +111,13 @@ get_vm_ip() {
     if [ -z "$detected_ip" ]; then
         local mac=$(ssh -o ConnectTimeout=5 -o BatchMode=yes "$PROXMOX_SSH_USER@$PROXMOX_API_HOST" \
             "qm config $vmid 2>/dev/null | \
-             grep -E 'net[0-9]:' | \
-             grep -oE '[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}' | \
+             grep 'net[0-9]:' | \
+             sed -n 's/.*=\([0-9A-Fa-f:]*\).*/\1/p' | \
              head -1" 2>/dev/null || echo "")
 
         if [ -n "$mac" ]; then
             detected_ip=$(ssh -o ConnectTimeout=5 -o BatchMode=yes "$PROXMOX_SSH_USER@$PROXMOX_API_HOST" \
-                "ip neigh show | grep -i '$mac' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1" 2>/dev/null || echo "")
+                "ip neigh show | grep -i '$mac' | sed -n 's/.* \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\) .*/\1/p' | head -1" 2>/dev/null || echo "")
         fi
     fi
 
