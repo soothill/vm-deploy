@@ -29,9 +29,9 @@ fi
 # Auto-detect SSH key if not set
 if [ -z "$PROXMOX_SSH_KEY" ]; then
     if [ -f "$HOME/.ssh/id_ed25519" ]; then
-        DEFAULT_SSH_KEY="$HOME/.ssh/id_ed25519"
+        DEFAULT_SSH_KEY="~/.ssh/id_ed25519"
     elif [ -f "$HOME/.ssh/id_rsa" ]; then
-        DEFAULT_SSH_KEY="$HOME/.ssh/id_rsa"
+        DEFAULT_SSH_KEY="~/.ssh/id_rsa"
     else
         DEFAULT_SSH_KEY="~/.ssh/id_rsa"
     fi
