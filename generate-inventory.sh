@@ -99,21 +99,22 @@ get_vm_ip() {
     local vmid=$2
     local detected_ip=""
 
-    # Try to get IP from qemu-guest-agent
-    # The output is JSON with ip-address fields, we want IPv4 addresses only (not 127.0.0.1 or IPv6)
-    # Use awk with simple regex matching for compatibility with older awk versions
+    # Try to get IP from qemu-guest-agent via SSH (simpler than API for guest agent)
+    # Just use Python to parse the JSON - it's available on all systems
     detected_ip=$(ssh -o ConnectTimeout=5 -o BatchMode=yes "$PROXMOX_SSH_USER@$PROXMOX_API_HOST" \
-        'qm guest cmd '"$vmid"' network-get-interfaces 2>/dev/null | \
-         awk '"'"'
-         /"ip-address"/ && /"ip-address":"[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+"/ {
-             line = $0
-             sub(/.*"ip-address":"/, "", line)
-             sub(/".*/, "", line)
-             if (line !~ /^127\./ && line ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/) {
-                 print line
-                 exit
-             }
-         }'"'"' 2>/dev/null || echo "")
+        "qm guest cmd $vmid network-get-interfaces 2>/dev/null | python3 -c '
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    for iface in data:
+        if \"ip-addresses\" in iface:
+            for addr in iface[\"ip-addresses\"]:
+                ip = addr.get(\"ip-address\", \"\")
+                if ip and not ip.startswith(\"127.\") and \":\" not in ip:
+                    print(ip)
+                    sys.exit(0)
+except: pass
+' 2>/dev/null" || echo "")
 
     # If guest agent doesn't work, try MAC address lookup in ARP table
     if [ -z "$detected_ip" ]; then
