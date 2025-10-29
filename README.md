@@ -178,6 +178,8 @@ The `make deploy` command:
 5. Deploys new VMs
 6. Configures disks and networking
 7. Starts VMs
+8. Waits for boot and detects VM IP addresses
+9. Auto-updates `inventory-vms.ini` with detected IPs
 
 **Simple. Automatic. Reliable.**
 

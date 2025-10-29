@@ -69,11 +69,8 @@ make deploy                             # Deploy with new image
 ### 3. VMs Must Be Running
 
 ```bash
-# Deploy VMs if not already done
+# Deploy VMs if not already done (auto-detects IPs)
 make deploy
-
-# Generate inventory with actual IPs
-./generate-inventory.sh
 
 # Verify all VMs are accessible
 make test-vm-connection
@@ -88,13 +85,10 @@ make test-vm-connection
 make init && make edit-env
 make deploy-build-vm && make build-image-remote
 
-# 2. Deploy VMs
+# 2. Deploy VMs (auto-detects IPs after boot)
 make deploy
 
-# 3. Wait for VMs to boot and get IPs (2-3 minutes)
-./generate-inventory.sh
-
-# 4. Deploy Ceph cluster
+# 3. Deploy Ceph cluster
 make deploy-ceph
 ```
 

@@ -98,6 +98,12 @@ deploy: check-env generate-config-silent generate-inventory-silent check-image #
 	@$(ECHO) "$(BLUE)Deploying VMs to Proxmox...$(NC)"
 	@$(ANSIBLE) -i $(INVENTORY) $(DEPLOY_PLAYBOOK) $(ANSIBLE_OPTS)
 	@$(ECHO) "$(GREEN)VM deployment completed!$(NC)"
+	@echo ""
+	@$(ECHO) "$(BLUE)Waiting 90 seconds for VMs to boot and get IP addresses...$(NC)"
+	@sleep 90
+	@$(ECHO) "$(BLUE)Detecting VM IP addresses...$(NC)"
+	@./generate-inventory.sh
+	@$(ECHO) "$(GREEN)VM inventory updated with detected IPs!$(NC)"
 
 configure: check-env ## Configure deployed VMs (updates, SSH keys, services)
 	@$(ECHO) "$(BLUE)Configuring deployed VMs...$(NC)"
@@ -189,8 +195,8 @@ ifeq ($(CONFIRM_DELETE),true)
 	@$(ECHO) "$(GREEN)========================================$(NC)"
 	@echo ""
 	@$(ECHO) "$(BLUE)Next steps:$(NC)"
-	@echo "  1. Update inventory-vms.ini with actual VM IPs: make edit-vm-inventory"
-	@echo "  2. Configure VMs: make configure"
+	@echo "  1. Configure VMs: make configure"
+	@echo "  2. Deploy Ceph cluster: make deploy-ceph"
 else
 	@$(ECHO) "$(RED)ERROR: Fresh deployment not confirmed!$(NC)"
 	@echo ""
