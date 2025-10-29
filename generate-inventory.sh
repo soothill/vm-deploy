@@ -103,15 +103,17 @@ get_vm_ip() {
     # The output is JSON with ip-address fields, we want IPv4 addresses only (not 127.0.0.1 or IPv6)
     # Use awk for maximum compatibility (works on busybox and full Linux)
     detected_ip=$(ssh -o ConnectTimeout=5 -o BatchMode=yes "$PROXMOX_SSH_USER@$PROXMOX_API_HOST" \
-        "qm guest cmd $vmid network-get-interfaces 2>/dev/null | \
-         awk '
-         /\"ip-address\"/ {
-             match(\$0, /\"ip-address\":\"([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)\"/, arr)
-             if (arr[1] && arr[1] !~ /^127\./) {
-                 print arr[1]
-                 exit
+        'qm guest cmd '"$vmid"' network-get-interfaces 2>/dev/null | \
+         awk '"'"'
+         /"ip-address"/ {
+             if (match($0, /"ip-address":"([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)"/, arr)) {
+                 ip = arr[1]
+                 if (ip !~ /^127\./) {
+                     print ip
+                     exit
+                 }
              }
-         }'" 2>/dev/null || echo "")
+         }'"'"' 2>/dev/null || echo "")
 
     # If guest agent doesn't work, try MAC address lookup in ARP table
     if [ -z "$detected_ip" ]; then
