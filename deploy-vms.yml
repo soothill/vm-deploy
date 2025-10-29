@@ -270,11 +270,11 @@
     - name: Configure cloud-init with hostname and credentials
       ansible.builtin.shell: |
         # Configure cloud-init with hostname, user, and password
+        # Note: --nameserver removed to allow DHCP to set DNS servers
         qm set {{ item.vmid }} \
           --ciuser root \
           --cipassword '{{ vm_root_password | default("opensuse") }}' \
-          --searchdomain local \
-          --nameserver 8.8.8.8
+          --searchdomain local
 
         # Create cloud-init drive
         qm set {{ item.vmid }} --ide2 {{ storage_pool }}:cloudinit
