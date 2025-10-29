@@ -53,9 +53,10 @@ baseSetRunlevel multi-user.target
 #======================================
 # Set root password
 #--------------------------------------
-# Set default root password (can be changed via cloud-init or manually)
-echo "root:opensuse" | chpasswd
-echo "Default root password set to: opensuse"
+# Use VM_ROOT_PASSWORD from environment, or default to opensuse
+ROOT_PASSWORD="${VM_ROOT_PASSWORD:-opensuse}"
+echo "root:${ROOT_PASSWORD}" | chpasswd
+echo "Default root password configured"
 
 #======================================
 # SSH Configuration

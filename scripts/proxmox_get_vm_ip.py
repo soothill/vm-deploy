@@ -13,25 +13,35 @@ def get_vm_ip(host, user, password, node, vmid, debug=False):
     """Get first non-loopback IPv4 address from VM guest agent"""
     base_url = f"https://{host}:8006/api2/json"
 
-    # Authenticate
-    auth_url = f"{base_url}/access/ticket"
-    auth_data = {'username': user, 'password': password}
-
-    try:
-        response = requests.post(auth_url, data=auth_data, verify=False, timeout=5)
-        response.raise_for_status()
-        auth_result = response.json()['data']
-        ticket = auth_result['ticket']
-        csrf_token = auth_result['CSRFPreventionToken']
-    except Exception as e:
+    # Check if using API token (contains !) or password authentication
+    if '!' in user:
+        # API Token authentication
         if debug:
-            print(f"Authentication failed: {e}", file=sys.stderr)
-        return None
+            print(f"Using API token authentication for {user}", file=sys.stderr)
+        headers = {'Authorization': f'PVEAPIToken={user}={password}'}
+        cookies = {}
+    else:
+        # Password authentication - get ticket
+        if debug:
+            print(f"Using password authentication for {user}", file=sys.stderr)
+        auth_url = f"{base_url}/access/ticket"
+        auth_data = {'username': user, 'password': password}
+
+        try:
+            response = requests.post(auth_url, data=auth_data, verify=False, timeout=5)
+            response.raise_for_status()
+            auth_result = response.json()['data']
+            ticket = auth_result['ticket']
+            csrf_token = auth_result['CSRFPreventionToken']
+            headers = {'CSRFPreventionToken': csrf_token}
+            cookies = {'PVEAuthCookie': ticket}
+        except Exception as e:
+            if debug:
+                print(f"Authentication failed: {e}", file=sys.stderr)
+            return None
 
     # Get network interfaces from guest agent
     interfaces_url = f"{base_url}/nodes/{node}/qemu/{vmid}/agent/network-get-interfaces"
-    headers = {'CSRFPreventionToken': csrf_token}
-    cookies = {'PVEAuthCookie': ticket}
 
     try:
         response = requests.get(

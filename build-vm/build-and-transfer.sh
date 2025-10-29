@@ -183,12 +183,14 @@ cd /root/kiwi-builds
 # Set build variables
 export IMAGE_NAME="${IMAGE_NAME}"
 export OUTPUT_DIR="/root/kiwi-builds/output"
+export VM_ROOT_PASSWORD="${VM_ROOT_PASSWORD:-opensuse}"
 
 echo "=========================================="
 echo "Building OpenSUSE Image with KIWI"
 echo "=========================================="
 echo "Image: \${IMAGE_NAME}.qcow2"
 echo "Output: \${OUTPUT_DIR}"
+echo "Root Password: [configured from VM_ROOT_PASSWORD]"
 echo "=========================================="
 echo ""
 

@@ -117,31 +117,46 @@ class ProxmoxAPI:
         self.base_url = f"https://{host}:8006/api2/json"
         self.ticket = None
         self.csrf_token = None
+        self.use_api_token = '!' in user
 
     def authenticate(self):
-        """Get authentication ticket and CSRF token"""
-        url = f"{self.base_url}/access/ticket"
-        data = {
-            'username': self.user,
-            'password': self.password
-        }
-        response = requests.post(url, data=data, verify=self.verify_ssl)
-        response.raise_for_status()
-        result = response.json()['data']
-        self.ticket = result['ticket']
-        self.csrf_token = result['CSRFPreventionToken']
+        """Get authentication ticket and CSRF token (or setup API token)"""
+        if self.use_api_token:
+            # API Token authentication - no ticket needed
+            # Token is already in user/password format
+            pass
+        else:
+            # Password authentication - get ticket
+            url = f"{self.base_url}/access/ticket"
+            data = {
+                'username': self.user,
+                'password': self.password
+            }
+            response = requests.post(url, data=data, verify=self.verify_ssl)
+            response.raise_for_status()
+            result = response.json()['data']
+            self.ticket = result['ticket']
+            self.csrf_token = result['CSRFPreventionToken']
 
     def _get_headers(self):
         """Get headers with authentication"""
-        return {
-            'CSRFPreventionToken': self.csrf_token
-        }
+        if self.use_api_token:
+            return {
+                'Authorization': f'PVEAPIToken={self.user}={self.password}'
+            }
+        else:
+            return {
+                'CSRFPreventionToken': self.csrf_token
+            }
 
     def _get_cookies(self):
         """Get cookies with authentication ticket"""
-        return {
-            'PVEAuthCookie': self.ticket
-        }
+        if self.use_api_token:
+            return {}
+        else:
+            return {
+                'PVEAuthCookie': self.ticket
+            }
 
     def vm_exists(self, vmid):
         """Check if VM exists"""

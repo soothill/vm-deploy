@@ -109,10 +109,15 @@ KIWI_KEYTABLE="${KIWI_KEYTABLE:-uk}"
 KIWI_LOCALE="${KIWI_LOCALE:-en_GB}"
 KIWI_TIMEZONE="${KIWI_TIMEZONE:-Europe/London}"
 
+# Configure root password (defaults to 'opensuse')
+VM_ROOT_PASSWORD="${VM_ROOT_PASSWORD:-opensuse}"
+export VM_ROOT_PASSWORD
+
 echo "Localization settings:"
 echo "  Keytable: ${KIWI_KEYTABLE}"
 echo "  Locale: ${KIWI_LOCALE}"
 echo "  Timezone: ${KIWI_TIMEZONE}"
+echo "  Root password: [configured from VM_ROOT_PASSWORD]"
 
 # Update config.xml with localization settings
 if [ -f "${SCRIPT_DIR}/config.xml" ]; then
