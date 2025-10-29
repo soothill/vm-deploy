@@ -81,14 +81,65 @@ echo -e "${GREEN}✓${NC} Generated: $PROXMOX_INVENTORY"
 cat > "$VMS_INVENTORY" << EOF
 # VM Inventory for Deployed Ceph Nodes
 # Generated from environment variables on $(date)
-# Update IP addresses after deployment if using DHCP
+# IP addresses detected from Proxmox via qemu-guest-agent
 
 [ceph_nodes]
 EOF
 
+echo "Detecting VM IP addresses from Proxmox..."
+
+# Function to get VM IP from Proxmox
+get_vm_ip() {
+    local vm_name=$1
+    local vmid=$2
+    local detected_ip=""
+
+    # Try to get IP from qemu-guest-agent
+    detected_ip=$(ssh -o ConnectTimeout=5 "$PROXMOX_SSH_USER@$PROXMOX_API_HOST" \
+        "qm guest cmd $vmid network-get-interfaces 2>/dev/null | \
+         grep -o '\"ip-address\":\"[0-9][0-9.]*\"' | \
+         grep -o '[0-9][0-9.]*' | \
+         grep -v '127.0.0.1' | \
+         grep -v ':' | \
+         head -1" 2>/dev/null || echo "")
+
+    # If guest agent doesn't work, try MAC address lookup
+    if [ -z "$detected_ip" ] || [ "$detected_ip" = "." ]; then
+        local mac=$(ssh -o ConnectTimeout=5 "$PROXMOX_SSH_USER@$PROXMOX_API_HOST" \
+            "qm config $vmid | grep -o 'net0:.*' | grep -o '[0-9A-Fa-f:]\{17\}' | head -1" 2>/dev/null || echo "")
+
+        if [ -n "$mac" ]; then
+            detected_ip=$(ssh -o ConnectTimeout=5 "$PROXMOX_SSH_USER@$PROXMOX_API_HOST" \
+                "ip neigh show | grep -i '$mac' | grep -o '[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}' | head -1" 2>/dev/null || echo "")
+        fi
+    fi
+
+    echo "$detected_ip"
+}
+
+# Build inventory with detected IPs
 for i in $(seq 1 $NUM_VMS); do
     eval "VM_NAME=\$VM${i}_NAME"
-    eval "VM_IP=\$VM${i}_IP"
+    eval "VM_VMID=\$VM${i}_VMID"
+    eval "FALLBACK_IP=\$VM${i}_IP"
+
+    # Calculate VMID if not set
+    if [ -z "$VM_VMID" ]; then
+        VM_VMID=$((199 + i))
+    fi
+
+    # Try to detect IP from Proxmox
+    DETECTED_IP=$(get_vm_ip "$VM_NAME" "$VM_VMID")
+
+    # Use detected IP or fall back to configured IP
+    if [ -n "$DETECTED_IP" ] && [ "$DETECTED_IP" != "." ]; then
+        VM_IP="$DETECTED_IP"
+        echo "  ${VM_NAME}: ${DETECTED_IP} (detected)"
+    else
+        VM_IP="$FALLBACK_IP"
+        echo "  ${VM_NAME}: ${FALLBACK_IP} (using configured IP - VM not running or guest agent not available)"
+    fi
+
     echo "$VM_NAME ansible_host=$VM_IP" >> "$VMS_INVENTORY"
 done
 
@@ -102,13 +153,5 @@ ansible_python_interpreter=/usr/bin/python3
 ansible_host_key_checking=False
 EOF
 
+echo ""
 echo -e "${GREEN}✓${NC} Generated: $VMS_INVENTORY"
-echo ""
-echo "VMs in inventory:"
-for i in $(seq 1 $NUM_VMS); do
-    eval "VM_NAME=\$VM${i}_NAME"
-    eval "VM_IP=\$VM${i}_IP"
-    echo "  - $VM_NAME @ $VM_IP"
-done
-echo ""
-echo "Note: Update IP addresses in $VMS_INVENTORY if using DHCP"

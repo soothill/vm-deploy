@@ -376,10 +376,9 @@ generate-config: ## Generate vm_config.yml from environment variables
 generate-config-silent:
 	@./generate-config.sh > /dev/null
 
-generate-inventory: ## Generate inventory from environment variables
-	@$(ECHO) "$(BLUE)Generating inventory from environment...$(NC)"
+generate-inventory: ## Generate inventory and detect VM IPs from Proxmox
+	@$(ECHO) "$(BLUE)Generating inventory and detecting VM IPs...$(NC)"
 	@./generate-inventory.sh
-	@$(ECHO) "$(GREEN)Inventory generated!$(NC)"
 
 generate-inventory-silent:
 	@./generate-inventory.sh > /dev/null
