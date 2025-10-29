@@ -43,16 +43,10 @@ The KIWI image includes these Ceph-related packages:
 <package name="cephadm"/>
 <package name="ceph-common"/>
 <package name="podman"/>
-<package name="python3-asyncssh"/>
-<package name="python3-natsort"/>
-<package name="python3-CherryPy"/>
-<package name="python3-Jinja2"/>
 <package name="chrony"/>
-
-<!-- Container tools for Ceph -->
-<package name="containernetworking-plugins"/>
-<package name="conmon"/>
 ```
+
+**Note**: Additional dependencies (Python packages, container tools) are automatically installed by cephadm during cluster bootstrap. The base image only needs the core packages listed above.
 
 ### 2. Rebuild Image if Needed
 
